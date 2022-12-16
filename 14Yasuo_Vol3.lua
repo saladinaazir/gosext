@@ -1575,6 +1575,7 @@ end
 
 function Yasuo:Beyblade()
 _G.SDK.Orbwalker:Orbwalk()
+--dm me on discord and i'll send you a cookie
 	local target = self:GetHeroTarget(1200)
     if WActive then return end
 	if Ready(_E) and Ready(_Q) and  self.lastETick + 100 < GetTickCount() and not myHero.pathing.isDashing then

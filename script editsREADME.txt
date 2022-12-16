@@ -190,3 +190,11 @@ KillerKarthus
 	-toggle+lvl slider for weaving in Q and aas without canceling the aas(extremely important early for lane karthus)
 	-experimental E lasthit
 	-option to only R in zombie mode at the last second
+  14Yasuo
+	- beyblade logic needs a menu setting to enable/disable R,
+	-yasuo's animation speed changes fluidly with attackspeed, so that as well as ping means that values that worked for me might not work in all situations, i tried to adjust for EQ animation speed, but it could use work
+	-iirc the beyblade key will always try to keyblade as well, but you can't keyblade if you have low attack speed, so just R manually
+	-I think people should always disable using E in combo, and use the "flee" key to dash towards cursor, I modified the original function so it won't dash perpendicularly to your cursor, made the flee key work during combo, and added an option to Q while Eing if circular Q will hit
+	-Lasthit out of aa range minions 
+	-some other random bugfixes/improvements
+	if you know how to code and enjoy using this, try practice tooling and giving me feedback about what to change with the combo airblade and separate beyblade/keyblade key to make it as consistent as possible.

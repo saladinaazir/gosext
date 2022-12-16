@@ -730,6 +730,7 @@ function Yasuo:LoadMenu()
 			self.tyMenu.combo.Ult.DontSoloUlt:MenuElement({id = hero.charName, name = hero.charName, value = true})
 		end
 		end,0.01)
+		
 		self.tyMenu.combo.Ult:MenuElement({name = " ", drop = {"\\\\\\\\\\\\\\\\\\////////////////////"}})
 		self.tyMenu.combo.Ult:MenuElement({name = " ", drop = {"//////////////////\\\\\\\\\\\\\\\\\\\\"}})
 		self.tyMenu.combo.Ult:MenuElement({name = " ", drop = {"---- TeamFight Ultimate Settings ----"}})
@@ -771,6 +772,7 @@ function Yasuo:LoadMenu()
 		self.tyMenu.flee:MenuElement({id = "EKey", name = "Key",toggle=false, key = string.byte("A")})
 		self.tyMenu.flee:MenuElement({id = "ETower", name = "Stop E Into Tower Range", value = true})
 		self.tyMenu.flee:MenuElement({id = "EQ", name = "Use Q while dashing if will hit", value = true})
+		self.tyMenu.flee:MenuElement({id = "Eprecison", name = "Higher value means will require smaller angle b/t cursor pos and endpos", value = 0.7, min = 0, max = 0.95, step =0.01})
     self.tyMenu:MenuElement({type = MENU, id = "windwall", name = "WindWall Setting"})
 		self.tyMenu.windwall:MenuElement({id = "Wcombo", name = "Only Cast W in Combo", value = true})
 		self.tyMenu.windwall:MenuElement({type = MENU, id = "spell", name = "Targeted Spell Setting"})
@@ -985,7 +987,7 @@ function Yasuo:CastR()
 		if isKnock and Ready(_R) then
 
 			if self.tyMenu.combo.Ult.useR4:Value() then
-				if enemy.health/enemy.maxHealth <= self.tyMenu.combo.Ult.R4Hp:Value()/100 and GetEnemyCount(self.tyMenu.combo.Ult.R4Range:Value(), enemy) == 1 and self.tyMenu.combo.Ult.DontSoloUlt[enemy.charName]:Value()==false then
+				if enemy.health/enemy.maxHealth <= self.tyMenu.combo.Ult.R4Hp:Value()/100 and  enemy.health/enemy.maxHealth >= 25/100  and GetEnemyCount(self.tyMenu.combo.Ult.R4Range:Value(), enemy) == 1 and self.tyMenu.combo.Ult.DontSoloUlt[enemy.charName]:Value()==false then
 					if self.tyMenu.combo.Ult.useR1:Value() and myHero.attackSpeed > 1.33 then
 						local Etarget =  Ready(_E) and self:GetEtargetForUlt()
 						CanUlt = true
@@ -1451,7 +1453,7 @@ function Yasuo:Flee()
     if WActive then return end
 	if Ready(_E) and self.lastETick + 100 < GetTickCount() and not myHero.pathing.isDashing then
         local Eobj, distance  = self:GetBestEObjToCursor(self.tyMenu.flee.ETower:Value())
-        if Eobj and ((distance+300 <= mousePos:DistanceTo(myHero.pos)) or(Eobj.pos:DistanceTo(mousePos) < mousePos:DistanceTo(myHero.pos) and myHero.pos:DistanceTo(mousePos)<300))  then
+        if Eobj and ((distance+(self.tyMenu.flee.Eprecison:Value()*475) <= mousePos:DistanceTo(myHero.pos)) or(Eobj.pos:DistanceTo(mousePos) < mousePos:DistanceTo(myHero.pos) and myHero.pos:DistanceTo(mousePos)<400))  then
 			local endPos = self:GetDashPos(Eobj)
 			Control.KeyUp("M")
             Control.CastSpell(HK_E, Eobj)
@@ -1471,7 +1473,7 @@ function Yasuo:CheckBeyblade(endPos)
     local objPos = Vector(endPos.x, endPos.y, endPos.z)
     local pos = myPos:Extended(objPos, 250)
 	local shouldflash = myHero:GetSpellData(0).name == "YasuoQ3Wrapper"
-    if target and Ready(_Q) and (shouldflash==false or (Ready(SUMMONER_1) and (pos:DistanceTo(target.pos)<= (180+myHero.boundingRadius+target.boundingRadius)+450)) or pos:DistanceTo(target.pos)<= (160+myHero.boundingRadius+target.boundingRadius)) then
+    if target and Ready(_Q) and (shouldflash==false or (Ready(SUMMONER_1) and (pos:DistanceTo(target.pos)<= (180+myHero.boundingRadius+target.boundingRadius)+450)) or endPos:DistanceTo(target.pos)<= (160+myHero.boundingRadius+target.boundingRadius)) then
         Control.KeyDown(HK_Q)
         _G.SDK.Orbwalker:SetAttack(false)
         --print("E delay "..self.Epre.Delay)
@@ -1516,9 +1518,23 @@ function Yasuo:CheckBeyblade(endPos)
 					if(target2 and IsValid(target2) and target2 ~= nil) then
 						local nearbyEnemies = GetEnemiesAtPos(searchrange, Q3radius*2 -RBuffer, target2.pos, target2)
 						local bestPos, count = self:CalculateBestCirclePosition(nearbyEnemies, Q3radius - RBuffer/2, true)
-						if(myHero.pos:DistanceTo(bestPos) <= FRange) then
+						if(myHero.pos:DistanceTo(bestPos) <= FRange) and ((count>1 and endPos:DistanceTo(bestpos)>100) or endPos:DistanceTo(target.pos) >= (170)) then
 							print("3")
 							_G.SDK.Cursor:Add("O", bestPos)
+							_G.SDK.Orbwalker:SetMovement(true)
+							DelayAction(function()
+								if Ready(_R) then
+									local Etarget = self:GetEtargetForUlt3()
+									Control.KeyUp("M")
+									Control.CastSpell(HK_E, Etarget)
+									self:CheckAirblade(Etarget)			
+									self.lastETick = GetTickCount()
+									DelayAction(function()
+										Control.CastSpell(HK_R, enemy)
+									end,self.Epre.Delay*.4)
+								end
+							end,math.max(myHero:GetSpellData(_Q).currentCd-(0.51+(self.tyMenu.ping:Value()/1000)),myHero:GetSpellData(_E).currentCd))
+						elseif endPos:DistanceTo(target.pos) <= (160) then
 							_G.SDK.Orbwalker:SetMovement(true)
 							DelayAction(function()
 								if Ready(_R) then
@@ -1543,9 +1559,23 @@ function Yasuo:CheckBeyblade(endPos)
 					if(target2 and IsValid(target2) and target2 ~= nil) then
 						local nearbyEnemies = GetEnemiesAtPos(searchrange, Q3radius*2 -RBuffer, target2.pos, target2)
 						local bestPos, count = self:CalculateBestCirclePosition(nearbyEnemies, Q3radius - RBuffer/2, true)
-						if(myHero.pos:DistanceTo(bestPos) <= FRange) then
+						if(myHero.pos:DistanceTo(bestPos) <= FRange) and ((count>1 and endPos:DistanceTo(bestpos)>100) or endPos:DistanceTo(target.pos) >= (170)) then
 							print("4")
 							_G.SDK.Cursor:Add("O", bestPos)
+							_G.SDK.Orbwalker:SetMovement(true)
+							DelayAction(function()
+								if Ready(_R) then
+									local Etarget = self:GetEtargetForUlt3()
+									Control.KeyUp("M")
+									Control.CastSpell(HK_E, Etarget)
+									self:CheckAirblade(Etarget)			
+									self.lastETick = GetTickCount()
+									DelayAction(function()
+										Control.CastSpell(HK_R, enemy)
+									end,self.Epre.Delay*.4)
+								end
+							end,math.max(myHero:GetSpellData(_Q).currentCd-(0.51+(self.tyMenu.ping:Value()/1000)),myHero:GetSpellData(_E).currentCd))
+						elseif endPos:DistanceTo(target.pos) <= (160) then
 							_G.SDK.Orbwalker:SetMovement(true)
 							DelayAction(function()
 								if Ready(_R) then
@@ -1575,7 +1605,6 @@ end
 
 function Yasuo:Beyblade()
 _G.SDK.Orbwalker:Orbwalk()
---dm me on discord and i'll send you a cookie
 	local target = self:GetHeroTarget(1200)
     if WActive then return end
 	if Ready(_E) and Ready(_Q) and  self.lastETick + 100 < GetTickCount() and not myHero.pathing.isDashing then

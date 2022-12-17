@@ -459,7 +459,7 @@ function LoadScript()
 	Menu:MenuElement({type = MENU, id = "Combo", name = "Combo"})
 	Menu.Combo:MenuElement({id = "UseQ", name = "[Q]", value = true})
 	Menu.Combo:MenuElement({id = "QKey", name = "[Q] semimanual cast key", value = false, toggle=false,key=string.byte("S") })
-	Menu.Combo:MenuElement({id = "WKey", name = "[E] semimanual cast at target key", value = false, toggle=false,key=string.byte("A") })
+	Menu.Combo:MenuElement({id = "WKey", name = "[W] semimanual cast at target key", value = false, toggle=false,key=string.byte("A") })
 	Menu.Combo:MenuElement({id = "SaveQ", name = "smart save [Q] for hitting max shureikins ", value = false, toggle=true,key=string.byte("Capslock")})
 	Menu.Combo:MenuElement({id = "UseW", name = "[W]", value = false})
 	Menu.Combo:MenuElement({id = "UseE", name = "[E]", value = true})
@@ -624,7 +624,7 @@ if MyHeroNotReady() then return end
 local Mode = GetMode()
 	if Control.IsKeyDown(Menu.Combo.WKey:Key()) then
 		local target = GetTarget2(1800)
-		if target and Ready(_W) and (myHero:GetSpellData(_W).toggleState == 0 or wincrement==true) then --or ( Wshadow ~= nil and (WTime + 0.3) < GameTimer() )) then
+		if target and Ready(_W) and (myHero:GetSpellData(_W).name == "ZedW" or wincrement==true) then --or ( Wshadow ~= nil and (WTime + 0.3) < GameTimer() )) then
 			Control.CastSpell(HK_W, target.pos:Extended(myHero.pos,-150))
 		end
 		wincrement=false
@@ -794,6 +794,10 @@ local unit, spell = OnProcessSpell()
 				if Menu.spells[unit.charName][cast.name] and Menu.spells[unit.charName][cast.name]:Value() and cast.name == unit.activeSpell.name then
 					local startPos = unit.activeSpell.startPos
 					local placementPos = unit.activeSpell.placementPos
+					if unit.activeSpell.target == myHero.handle then
+                    	CastEvadeR()
+                    	return
+                    end
 					local width = 0
 					if unit.activeSpell.width > 0 then
 						width = unit.activeSpell.width
@@ -803,17 +807,13 @@ local unit, spell = OnProcessSpell()
 					local VCastPos = Vector(CastPos.x, CastPos.y, CastPos.z)
 					local VPlacementPos = Vector(PlacementPos.x, PlacementPos.y, PlacementPos.z)
 					local point, isOnSegment = ClosestPointOnLineSegment(myHero.pos, VPlacementPos, VCastPos)
-					local distCheck = GetDistance(myHero.pos, point)					
-				--	local distance = GetDistance(myHero.pos, placementPos)											
-					if unit.activeSpell.target == myHero.handle then
-						CastEvadeR()
-						return
-					else
-						if distCheck <= width + myHero.boundingRadius+30 then
-							CastEvadeR()
-						break
-						end
-					end							
+					local distCheck = GetDistance(myHero.pos, point)
+
+                    if distCheck <= width + myHero.boundingRadius+30 then
+                        CastEvadeR()
+                    break
+                    end
+
 				end
 			end
 		end
@@ -847,47 +847,60 @@ function UpdateTotalDamage()
 
 	if(dataTick > GameTimer()) then return end
 
-	local enemies = GetEnemyHeroes(2000)
+	local enemies = GetEnemyHeroesinrange(1800)
 	if(#enemies > 0) then
 		for _, enemy in pairs(enemies) do
 			if(enemy and enemy.valid and IsValid(enemy)) then
-				comboDamageData[enemy.name] = GetTotalDamage(enemy)
-				comboQEData[enemy.name] = GetQEDamage(enemy)
+				comboDamageData[enemy.name],comboQEData[enemy.name]= GetTotalDamage(enemy)
+
 			end
 		end
 
-		dataTick = GameTimer() + 0.3
+		dataTick = GameTimer() + 0.5
 	end
 end
+
+function CalculatePhysicalDamage(target, damage)
+    if target and damage then
+        local targetArmor = target.armor * myHero.armorPenPercent - myHero.armorPen
+        local damageReduction = 100 / (100 + targetArmor)
+        if targetArmor < 0 then
+            damageReduction = 2 - (100 / (100 - targetArmor))
+        end
+        damage = damage * damageReduction
+        return damage
+    end
+    return 0
+end
+
  function GetTotalDamage(target)
  			local Qdmg2		= Ready(_Q) and GetDamage(HK_Q) or 0
  			local Edmg2 	= Ready(_E) and GetDamage(HK_E) or 0
  			local IGdmg 	= GetDamage(Ignite) or 0
- 			local Qdmg 		= Ready(_Q) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Qdmg2) or 0
- 			local Edmg 		= Ready(_E) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Edmg2) or 0
  			local Rdmg 		= Ready(_R) and GetDamage(HK_R) or 0
  			local Elect 	= HasElec(myHero) and GetDamage(Elec) or 0
- 			local elecdmg   = DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Elect) or 0
  			local physical	= myHero.totalDamage
  			local magical 	= myHero.ap
- 			local TotalDmg 	= (Qdmg2 + elecdmg+ Edmg2 + Rdmg + IGdmg + ((Qdmg2 + Edmg2 + physical)*(0.1 + 0.15 * myHero:GetSpellData(_R).level)) + ((physical + magical) * 2)) - (target.hpRegen*3)
-    return DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,TotalDmg)
+ 			local TotalDmg 	= (Qdmg2 + Elect + Edmg2 + Rdmg + IGdmg + ((Qdmg2 + Edmg2 + physical)*(0.1 + 0.15 * myHero:GetSpellData(_R).level)) + ((physical + magical) * 2)) - (target.hpRegen*3)
+ 			local QEDmg 	= (Qdmg2 + Elect + Edmg2 +physical) - (target.hpRegen*3)
+    return CalculatePhysicalDamage(target, TotalDmg), CalculatePhysicalDamage(target, QEDmg)
 end
 
- function GetQEDamage(target)
- 			local Qdmg2		= Ready(_Q) and GetDamage(HK_Q) or 0
- 			local Edmg2 	= Ready(_E) and GetDamage(HK_E) or 0
- 			local IGdmg 	= GetDamage(Ignite) or 0
- 			local Qdmg 		= Ready(_Q) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Qdmg2) or 0
- 			local Edmg 		= Ready(_E) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Edmg2) or 0
- 			local Rdmg 		= Ready(_R) and GetDamage(HK_R) or 0
- 			local Elect 	= HasElec(myHero) and GetDamage(Elec) or 0
- 			local elecdmg   = DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Elect) or 0
- 			local physical	= myHero.totalDamage
- 			local magical 	= myHero.ap
- 			local QEDmg 	= (Qdmg2 + elecdmg+ Edmg2 +physical) - (target.hpRegen*3)
-    return DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,QEDmg)
-end
+ --[[  function GetQEDamage(target)
+     			local Qdmg2		= Ready(_Q) and GetDamage(HK_Q) or 0
+     			local Edmg2 	= Ready(_E) and GetDamage(HK_E) or 0
+     			local IGdmg 	= GetDamage(Ignite) or 0
+     			local Qdmg 		= Ready(_Q) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Qdmg2) or 0
+     			local Edmg 		= Ready(_E) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Edmg2) or 0
+     			local Rdmg 		= Ready(_R) and GetDamage(HK_R) or 0
+     			local Elect 	= HasElec(myHero) and GetDamage(Elec) or 0
+     			local elecdmg   = DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Elect) or 0
+     			local physical	= myHero.totalDamage
+     			local magical 	= myHero.ap
+     			local QEDmg 	= (Qdmg2 + elecdmg+ Edmg2 +physical) - (target.hpRegen*3)
+        return
+    end
+--]]
 
 
 function Drawing()
@@ -922,9 +935,9 @@ function Drawing()
 
     end
 	if Menu.Drawing.KillText:Value() then
+	local currentEnergyNeeded = GetEnergy()
 		for i, target in ipairs(GetEnemyHeroesinrange(1500)) do
-			local currentEnergyNeeded = GetEnergy()
-			if Ready(_R) and comboDamageData[target.name]~= nil then
+			if Ready(_R) and comboDamageData[target.name]~= nil and ( (myHero:GetSpellData(_R).cd - myHero:GetSpellData(_R).currentCd>3) or HasBuff(target,"zedrtargetmark"))then
 				if myHero.pos:DistanceTo(target.pos) <= 2000 and IsValid(target) and target.health < comboDamageData[target.name] and myHero.mana > currentEnergyNeeded then
 					DrawText("Kill", 24, target.pos2D.x, target.pos2D.y-50,DrawColor(255, 255, 0, 0))
 					DrawText("Kill", 10, target.posMM.x - 15, target.posMM.y - 15,DrawColor(255, 255, 0, 0))	
@@ -1068,7 +1081,7 @@ if target == nil then return end
 end
 function hW()
 local target = GetTarget2(2000)
-if target == nil then return end    
+if target == nil then return end
     if Ready(_W) then
 
 		if myHero:GetSpellData(_W).name ~= "ZedW2" then
@@ -1083,6 +1096,7 @@ if target == nil then return end
 					else
 						Control.CastSpell(HK_W, target.pos)
 						WTime = GameTimer()
+
 						return
 					end	
 				end
@@ -1096,7 +1110,7 @@ if target == nil then return end
 				end	
 			end
 		end
-		if myHero.pos:DistanceTo(target.pos) <= 900 and Ready(_Q) and ((not Ready(_W)) or myHero:GetSpellData(_W).name == "ZedW2") and WTime + 0.3 < GameTimer() then
+		if  Ready(_Q) and ((not Ready(_W)) or myHero:GetSpellData(_W).name == "ZedW2") and WTime + 0.3 < GameTimer() then
 			QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_LINE, Delay = 0.25, Radius = 50, Range = 1500, Speed = 1700, Collision =false })
 			QPrediction:GetPrediction(target, myHero)
 			if QPrediction:CanHit(Menu.Pred.PredQ:Value() + 1) then
@@ -1184,22 +1198,13 @@ end
 function Ult()
 local target = GetTarget2(2500)
 if target == nil then return end	
-	if IsValid(target) then	
-		local Qdmg2		= Ready(_Q) and GetDamage(HK_Q) or 0
-		local Edmg2 	= Ready(_E) and GetDamage(HK_E) or 0
-		local IGdmg 	= GetDamage(Ignite) or 0			
-		local Qdmg 		= Ready(_Q) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Qdmg2) or 0
-		local Edmg 		= Ready(_E) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Edmg2) or 0
-		local Rdmg 		= Ready(_R) and GetDamage(HK_R) or 0
-		local Elect 	= HasElec(myHero) and GetDamage(Elec) or 0
-		local elecdmg   = HasElec(myHero) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Elect) or 0
-		
+	if IsValid(target) then
+ 		local IGdmg 	= GetDamage(Ignite) or 0
+  --  return CalculatePhysicalDamage(target, TotalDmg), CalculatePhysicalDamage(target, QEDmg)
 		--print("rdmg"..Rdmg)
-		local physical	= myHero.totalDamage
-		local magical 	= myHero.ap
-		local TotalDmg 	= (Qdmg + elecdmg+ Edmg + Rdmg + IGdmg + ((Qdmg2 + Edmg2 + physical)*(0.1 + 0.15 * myHero:GetSpellData(_R).level)) + ((physical + magical) * 2)) - (target.hpRegen*3) 
+		local TotalDmg 	= comboDamageData[target.name]
 		local currentEnergyNeeded = GetEnergy()
-		local noultdmg = Qdmg + Edmg + IGdmg +elecdmg + physical*2
+
 		if Menu.Combo.Ult.IGN:Value() and myHero.pos:DistanceTo(target.pos) <= 600 and TotalDmg> target.health and  TotalDmg-IGdmg <= target.health then
 			if myHero:GetSpellData(SUMMONER_1).name == "SummonerDot" and GameCanUseSpell(SUMMONER_1) == 0 then
 				Control.CastSpell(HK_SUMMONER_1, target)
@@ -1327,16 +1332,14 @@ end
 function QEKill()
 	local target = GetTarget2(1000)
 		if target and myHero.pos:DistanceTo(target.pos) < 900 and IsValid(target) then
-			local Qdmg 	= Ready(_Q) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,GetDamage(HK_Q)) or 0
-			local Edmg 	= Ready(_E) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,GetDamage(HK_E)) or 0
-			local QEdmg = (Qdmg + Edmg)
+
 			local currentEnergyNeeded = GetEnergy()
 			
-			if Ready(_W) and myHero:GetSpellData(_W).name ~= "ZedW2" and target.health < QEdmg and myHero.mana > currentEnergyNeeded then
+			if Ready(_W) and myHero:GetSpellData(_W).name ~= "ZedW2" and target.health < comboQEData[target.name] and myHero.mana > currentEnergyNeeded then
 				QEKillable = true
 				Control.CastSpell(HK_W, target.pos)
 			end
-			if myHero:GetSpellData(_W).toggleState == 2 and target.health < QEdmg and myHero.mana > currentEnergyNeeded then
+			if myHero:GetSpellData(_W).toggleState == 2 and target.health < comboQEData[target.name]and myHero.mana > currentEnergyNeeded then
 			E()			
 			
 				QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_LINE, Delay = 0.25, Radius = 50, Range = 900, Speed = 1700, Collision =false })

@@ -618,7 +618,7 @@ end
 		
 	end
 	
-
+UpdateTotalDamage()
 
 if MyHeroNotReady() then return end
 local Mode = GetMode()
@@ -839,6 +839,56 @@ function HasElec(unit)
     end
     return false
 end
+local comboDamageData = {}
+local comboQEData = {}
+local dataTick = GameTimer()
+
+function UpdateTotalDamage()
+
+	if(dataTick > GameTimer()) then return end
+
+	local enemies = GetEnemyHeroes(2000)
+	if(#enemies > 0) then
+		for _, enemy in pairs(enemies) do
+			if(enemy and enemy.valid and IsValid(enemy)) then
+				comboDamageData[enemy.name] = GetTotalDamage(enemy)
+				comboQEData[enemy.name] = GetQEDamage(enemy)
+			end
+		end
+
+		dataTick = GameTimer() + 0.3
+	end
+end
+ function GetTotalDamage(target)
+ 			local Qdmg2		= Ready(_Q) and GetDamage(HK_Q) or 0
+ 			local Edmg2 	= Ready(_E) and GetDamage(HK_E) or 0
+ 			local IGdmg 	= GetDamage(Ignite) or 0
+ 			local Qdmg 		= Ready(_Q) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Qdmg2) or 0
+ 			local Edmg 		= Ready(_E) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Edmg2) or 0
+ 			local Rdmg 		= Ready(_R) and GetDamage(HK_R) or 0
+ 			local Elect 	= HasElec(myHero) and GetDamage(Elec) or 0
+ 			local elecdmg   = DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Elect) or 0
+ 			local physical	= myHero.totalDamage
+ 			local magical 	= myHero.ap
+ 			local TotalDmg 	= (Qdmg2 + elecdmg+ Edmg2 + Rdmg + IGdmg + ((Qdmg2 + Edmg2 + physical)*(0.1 + 0.15 * myHero:GetSpellData(_R).level)) + ((physical + magical) * 2)) - (target.hpRegen*3)
+    return DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,TotalDmg)
+end
+
+ function GetQEDamage(target)
+ 			local Qdmg2		= Ready(_Q) and GetDamage(HK_Q) or 0
+ 			local Edmg2 	= Ready(_E) and GetDamage(HK_E) or 0
+ 			local IGdmg 	= GetDamage(Ignite) or 0
+ 			local Qdmg 		= Ready(_Q) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Qdmg2) or 0
+ 			local Edmg 		= Ready(_E) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Edmg2) or 0
+ 			local Rdmg 		= Ready(_R) and GetDamage(HK_R) or 0
+ 			local Elect 	= HasElec(myHero) and GetDamage(Elec) or 0
+ 			local elecdmg   = DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Elect) or 0
+ 			local physical	= myHero.totalDamage
+ 			local magical 	= myHero.ap
+ 			local QEDmg 	= (Qdmg2 + elecdmg+ Edmg2 +physical) - (target.hpRegen*3)
+    return DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,QEDmg)
+end
+
 
 function Drawing()
 	if myHero.dead then return end
@@ -873,32 +923,20 @@ function Drawing()
     end
 	if Menu.Drawing.KillText:Value() then
 		for i, target in ipairs(GetEnemyHeroesinrange(1500)) do
-			local Qdmg2		= Ready(_Q) and GetDamage(HK_Q) or 0
-			local Edmg2 	= Ready(_E) and GetDamage(HK_E) or 0
-			local IGdmg 	= GetDamage(Ignite) or 0			
-			local Qdmg 		= Ready(_Q) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Qdmg2) or 0
-			local Edmg 		= Ready(_E) and DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Edmg2) or 0
-			local Rdmg 		= Ready(_R) and GetDamage(HK_R) or 0
-			local Elect 	= HasElec(myHero) and GetDamage(Elec) or 0
-			local elecdmg   = DamageLib:CalculateDamage(myHero, target, _G.SDK.DAMAGE_TYPE_PHYSICAL ,Elect) or 0
-			local physical	= myHero.totalDamage
-			local magical 	= myHero.ap
-			local TotalDmg 	= (Qdmg + elecdmg+ Edmg + Rdmg + IGdmg + ((Qdmg2 + Edmg2 + physical)*(0.1 + 0.15 * myHero:GetSpellData(_R).level)) + ((physical + magical) * 2)) - (target.hpRegen*3)	
-			local QEDmg 	= (Qdmg + elecdmg+ Edmg +physical) - (target.hpRegen*3)
 			local currentEnergyNeeded = GetEnergy()
-			if Ready(_R) then
-				if myHero.pos:DistanceTo(target.pos) <= 2000 and IsValid(target) and target.health < TotalDmg and myHero.mana > currentEnergyNeeded then 
+			if Ready(_R) and comboDamageData[target.name]~= nil then
+				if myHero.pos:DistanceTo(target.pos) <= 2000 and IsValid(target) and target.health < comboDamageData[target.name] and myHero.mana > currentEnergyNeeded then
 					DrawText("Kill", 24, target.pos2D.x, target.pos2D.y-50,DrawColor(255, 255, 0, 0))
 					DrawText("Kill", 10, target.posMM.x - 15, target.posMM.y - 15,DrawColor(255, 255, 0, 0))	
 				elseif  myHero.pos:DistanceTo(target.pos) <= 2000 and IsValid(target) then
-					DrawText(math.floor(((target.health-TotalDmg)/target.maxHealth)*100).."%", 24, target.pos2D.x, target.pos2D.y-50,DrawColor(255, 255, 255, 255))						
+					DrawText(math.floor(((target.health-comboDamageData[target.name])/target.maxHealth)*100).."%", 24, target.pos2D.x, target.pos2D.y-50,DrawColor(255, 255, 255, 255))
 				end
-			else
-				if myHero.pos:DistanceTo(target.pos) <= 2000 and IsValid(target) and target.health < QEDmg then
+			elseif comboQEData[target.name]~= nil then
+				if myHero.pos:DistanceTo(target.pos) <= 2000 and IsValid(target) and target.health < comboQEData[target.name] then
 					DrawText("Kill", 24, target.pos2D.x, target.pos2D.y-50,DrawColor(255, 255, 0, 0))
 					DrawText("Kill", 10, target.posMM.x - 15, target.posMM.y - 15,DrawColor(255, 255, 0, 0))	
 				elseif  myHero.pos:DistanceTo(target.pos) <= 2000 and IsValid(target) then
-					DrawText(math.floor(((target.health-QEDmg)/target.maxHealth)*100).."%", 24, target.pos2D.x, target.pos2D.y-50,DrawColor(255, 255, 255, 255))
+					DrawText(math.floor(((target.health-comboQEData[target.name])/target.maxHealth)*100).."%", 24, target.pos2D.x, target.pos2D.y-50,DrawColor(255, 255, 255, 255))
 				end				
 			end	
 		end	

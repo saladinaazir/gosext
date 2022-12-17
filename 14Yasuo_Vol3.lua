@@ -1,8 +1,6 @@
 local Heroes = {"Yasuo"}
-
+require('GGPrediction')
 if not table.contains(Heroes, myHero.charName) then return end
-
-
 if not FileExist(COMMON_PATH .. "PremiumPrediction.lua") then
 	DownloadFileAsync("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumPrediction.lua", COMMON_PATH .. "PremiumPrediction.lua", function() end)
 	print("PremiumPred. installed Press 2x F6")
@@ -1433,7 +1431,7 @@ end
 function Yasuo:CheckEQminion(endPos)
     --print("check EQ")
 	local target = self:GetHeroTarget(740)
-    if target and endPos:DistanceTo(target.pos) <= (160+myHero.boundingRadius+target.boundingRadius) and Ready(_Q) then
+    if target and endPos:DistanceTo(target:GetPrediction(math.huge, 0.3))<= (160+myHero.boundingRadius) and Ready(_Q) then
         Control.KeyDown(HK_Q)
         _G.SDK.Orbwalker:SetAttack(false)
         --print("E delay "..self.Epre.Delay)
@@ -1473,7 +1471,7 @@ function Yasuo:CheckBeyblade(endPos)
     local objPos = Vector(endPos.x, endPos.y, endPos.z)
     local pos = myPos:Extended(objPos, 250)
 	local shouldflash = myHero:GetSpellData(0).name == "YasuoQ3Wrapper"
-    if target and Ready(_Q) and (shouldflash==false or (Ready(SUMMONER_1) and (pos:DistanceTo(target.pos)<= (180+myHero.boundingRadius+target.boundingRadius)+450)) or endPos:DistanceTo(target.pos)<= (160+myHero.boundingRadius+target.boundingRadius)) then
+    if target and Ready(_Q) and (shouldflash==false or (Ready(SUMMONER_1) and (pos:DistanceTo(target.pos)<= (180+myHero.boundingRadius+target.boundingRadius)+450)) or(Ready(SUMMONER_1)==false and (endPos:DistanceTo(target:GetPrediction(math.huge, 0.25))<= (160+myHero.boundingRadius)))) then
         Control.KeyDown(HK_Q)
         _G.SDK.Orbwalker:SetAttack(false)
         --print("E delay "..self.Epre.Delay)
@@ -1518,7 +1516,7 @@ function Yasuo:CheckBeyblade(endPos)
 					if(target2 and IsValid(target2) and target2 ~= nil) then
 						local nearbyEnemies = GetEnemiesAtPos(searchrange, Q3radius*2 -RBuffer, target2.pos, target2)
 						local bestPos, count = self:CalculateBestCirclePosition(nearbyEnemies, Q3radius - RBuffer/2, true)
-						if(myHero.pos:DistanceTo(bestPos) <= FRange) and ((count>1 and endPos:DistanceTo(bestpos)>100) or endPos:DistanceTo(target.pos) >= (170)) then
+						if(myHero.pos:DistanceTo(bestPos) <= FRange) and ((count>1 and endPos:DistanceTo(bestpos)>100) or endPos:DistanceTo(target.pos) >= (160+myHero.boundingRadius)) then
 							print("3")
 							_G.SDK.Cursor:Add("O", bestPos)
 							_G.SDK.Orbwalker:SetMovement(true)
@@ -1534,7 +1532,7 @@ function Yasuo:CheckBeyblade(endPos)
 									end,self.Epre.Delay*.4)
 								end
 							end,math.max(myHero:GetSpellData(_Q).currentCd-(0.51+(self.tyMenu.ping:Value()/1000)),myHero:GetSpellData(_E).currentCd))
-						elseif endPos:DistanceTo(target.pos) <= (160) then
+						elseif endPos:DistanceTo(target.pos) <= (160+myHero.boundingRadius) then
 							_G.SDK.Orbwalker:SetMovement(true)
 							DelayAction(function()
 								if Ready(_R) then
@@ -1559,7 +1557,7 @@ function Yasuo:CheckBeyblade(endPos)
 					if(target2 and IsValid(target2) and target2 ~= nil) then
 						local nearbyEnemies = GetEnemiesAtPos(searchrange, Q3radius*2 -RBuffer, target2.pos, target2)
 						local bestPos, count = self:CalculateBestCirclePosition(nearbyEnemies, Q3radius - RBuffer/2, true)
-						if(myHero.pos:DistanceTo(bestPos) <= FRange) and ((count>1 and endPos:DistanceTo(bestpos)>100) or endPos:DistanceTo(target.pos) >= (170)) then
+						if(myHero.pos:DistanceTo(bestPos) <= FRange) and ((count>1 and endPos:DistanceTo(bestpos)>100) or endPos:DistanceTo(target.pos) >= (160+myHero.boundingRadius)) then
 							print("4")
 							_G.SDK.Cursor:Add("O", bestPos)
 							_G.SDK.Orbwalker:SetMovement(true)
@@ -1575,7 +1573,7 @@ function Yasuo:CheckBeyblade(endPos)
 									end,self.Epre.Delay*.4)
 								end
 							end,math.max(myHero:GetSpellData(_Q).currentCd-(0.51+(self.tyMenu.ping:Value()/1000)),myHero:GetSpellData(_E).currentCd))
-						elseif endPos:DistanceTo(target.pos) <= (160) then
+						elseif endPos:DistanceTo(target.pos) <= (160+myHero.boundingRadius) then
 							_G.SDK.Orbwalker:SetMovement(true)
 							DelayAction(function()
 								if Ready(_R) then

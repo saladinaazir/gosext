@@ -459,6 +459,7 @@ function LoadScript()
 	Menu:MenuElement({type = MENU, id = "Combo", name = "Combo"})
 	Menu.Combo:MenuElement({id = "UseQ", name = "[Q]", value = true})
 	Menu.Combo:MenuElement({id = "QKey", name = "[Q] semimanual cast key", value = false, toggle=false,key=string.byte("S") })
+	Menu.Combo:MenuElement({id = "WKey", name = "[E] semimanual cast at target key", value = false, toggle=false,key=string.byte("A") })
 	Menu.Combo:MenuElement({id = "SaveQ", name = "smart save [Q] for hitting max shureikins ", value = false, toggle=true,key=string.byte("Capslock")})
 	Menu.Combo:MenuElement({id = "UseW", name = "[W]", value = false})
 	Menu.Combo:MenuElement({id = "UseE", name = "[E]", value = true})
@@ -621,11 +622,15 @@ end
 
 if MyHeroNotReady() then return end
 local Mode = GetMode()
-	if Control.IsKeyDown("A") then
+	if Control.IsKeyDown(Menu.Combo.WKey:Key()) then
 		local target = GetTarget2(1000)
-		if target and Ready(_W) and (myHero:GetSpellData(_W).toggleState == 0 or ( Wshadow ~= nil and (WTime + 0.3) < GameTimer() )) then
+		if target and Ready(_W) and (myHero:GetSpellData(_W).toggleState == 0 or wincrement==true) then --or ( Wshadow ~= nil and (WTime + 0.3) < GameTimer() )) then
 			Control.CastSpell(HK_W, target.pos:Extended(myHero.pos,-150))
 		end
+		wincrement=false
+	end
+	if Control.IsKeyDown(Menu.Combo.WKey:Key())==false then
+	    wincrement=true
 	end
 	if Mode == "Combo" then
 		if not QEKillable then
@@ -943,7 +948,7 @@ local target = GetTarget2(2400)
 if target == nil then return end
     if Ready(_Q) then
 
-		if myHero.pos:DistanceTo(target.pos) <= 750 and (not Menu.Combo.SaveQ:Value() and (Wshadow ~= nil or not Ready(_W)) or target.health/target.maxHealth <= 0.15) then
+		if myHero.pos:DistanceTo(target.pos) <= 750 and (not Menu.Combo.SaveQ:Value() and (Wshadow ~= nil or not Ready(_W)) or target.health/target.maxHealth <= 0.1) then
 			CastQ(target, myHero)
 		--	print("y")
 		end

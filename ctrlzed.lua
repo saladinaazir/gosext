@@ -623,7 +623,7 @@ end
 if MyHeroNotReady() then return end
 local Mode = GetMode()
 	if Control.IsKeyDown(Menu.Combo.WKey:Key()) then
-		local target = GetTarget2(1000)
+		local target = GetTarget2(1800)
 		if target and Ready(_W) and (myHero:GetSpellData(_W).toggleState == 0 or wincrement==true) then --or ( Wshadow ~= nil and (WTime + 0.3) < GameTimer() )) then
 			Control.CastSpell(HK_W, target.pos:Extended(myHero.pos,-150))
 		end

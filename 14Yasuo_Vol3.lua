@@ -507,7 +507,6 @@ local function cantkill(unit, kill, ss, aa)
 	--set kill to true if you dont want to waste on undying/revive targets
 	--set ss to true if you dont want to cast on spellshield
 	--set aa to true if ability applies onhit (yone q, ez q etc)
-	
 	for i = 0, unit.buffCount do
 	
 		local buff = unit:GetBuff(i)
@@ -523,7 +522,9 @@ local function cantkill(unit, kill, ss, aa)
 		end	
 		if buff.name:lower():find("chronoshift") and kill and buff.count==1 then
 			return true
-		end			
+		end
+-- check for renata's W:
+
 		
 		if  buff.name:lower():find("willrevive") and (unit.health / unit.maxHealth) >= 0.5 and kill and buff.count==1 then
 			return true
@@ -699,13 +700,12 @@ end
 function Yasuo:LoadMenu()
     self.tyMenu = MenuElement({type = MENU, id = "14isbjorn", name = "14Yasuo_Vol.3"})
 	self.tyMenu:MenuElement({name = " ", drop = {"Reworked^2 by isbjorn"}})
-    self.tyMenu:MenuElement({name = "Ping", id = "ping", value = 20, min = 0, max = 300, step = 1})
+    self.tyMenu:MenuElement({name = "Ping", id = "ping", value = 60, min = 0, max = 300, step = 1})
 
     -- self.tyMenu:MenuElement({type = MENU, id = "StackQ", name = "StackQ Logic"})
 		-- self.tyMenu.StackQ:MenuElement({name = " ", drop = {"[Combo/Harass]"}})
 		-- self.tyMenu.StackQ:MenuElement({id = "enable", name = "StackQ if no Enemy in Qrange", key = string.byte("T"), value = true, toggle = true})
 		-- self.tyMenu.StackQ:MenuElement({id = "draw", name = "Draw Info Text", value = true})
-
     self.tyMenu:MenuElement({type = MENU, id = "combo", name = "Combo"})
 		self.tyMenu.combo:MenuElement({id = "ign", name = "Ignite", value = true})
 		self.tyMenu.combo:MenuElement({id = "ign2", name = "Ignite if Target out of E-range ( KS )", value = true})
@@ -969,6 +969,7 @@ function Yasuo:CalculateBestCirclePosition(targets, radius, edgeDetect)
 	
 	return avgCastPos, #targets, targets
 end
+
 
 
 function Yasuo:CastR()

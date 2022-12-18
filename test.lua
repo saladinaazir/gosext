@@ -42,7 +42,8 @@ if Champion == nil then
 	Menu:MenuElement({id = "enabled", name = "enable dashtool", value = True, Toggle= true})
     Menu:MenuElement({id = "efake", name = "Key to use", value = false, key = string.byte("E")})
 	Menu:MenuElement({id = "elol", name = "key in game", value = false, key = string.byte("L")})
-
+    Menu:MenuElement({id = "targeted", name = "ability is targeted ", value = True, Toggle= true})
+    Menu:MenuElement({id = "targetedrange", name = "targeted ability range ", value = 600, min=0, max=1200, step= 25})
 	Menu:MenuElement({id = "dash", name = "dash ability", value = 2, drop = {"[Q]","[W]", "[E]", "[R]" }})
 	-- stylua: ignore end
 	-- locals
@@ -121,9 +122,24 @@ function Champion:ELogic()
 		local timer = GetTickCount()
 		if self.EHelper ~= nil then
 			if  _G.SDK.Cursor.Step == 0 then
-				GG_Cursor:Add(self.EHelper, mousePos)
-				self.LastE = timer
-				self.EHelper = nil
+			    if Menu.targeted:Value() then
+			        local target= _G.SDK.TargetSelector:GetTarget(Menu.targetedrange:Value(), 1)
+			         if target then
+			            Control.KeyUp(Menu.elol:Key())
+			             GG_Cursor:Add(self.EHelper, target.pos)
+			             self.LastE = timer
+                         self.EHelper = nil
+                    else
+                        GG_Cursor:Add(self.EHelper, mousePos)
+                         self.LastE = timer
+                         self.EHelper = nil
+			        end
+			    else
+				    GG_Cursor:Add(self.EHelper, mousePos)
+				    self.LastE = timer
+                    self.EHelper = nil
+				end
+
 			end
 			return
 		end
@@ -156,9 +172,24 @@ function Champion:ELogic()
 		end
 		self.LastE = timer
 		if GG_Cursor.Step == 0 then
-			GG_Cursor:Add(Menu.elol:Key(), mousePos)
-			LastEFake = os.clock()
-			return
+            if Menu.targeted:Value() then
+                local target= _G.SDK.TargetSelector:GetTarget(Menu.targetedrange:Value(), 1)
+                 if target then
+                     Control.KeyUp(Menu.elol:Key())
+                     GG_Cursor:Add(Menu.elol:Key(), target.pos)
+                     LastEFake = os.clock()
+                     return
+                 else
+                    GG_Cursor:Add(Menu.elol:Key(), mousePos)
+                    LastEFake = os.clock()
+                    return
+                end
+            else
+		    	GG_Cursor:Add(Menu.elol:Key(), mousePos)
+			    LastEFake = os.clock()
+			    return
+			end
+
 		end
 		self.EHelper = Menu.elol:Key()
 

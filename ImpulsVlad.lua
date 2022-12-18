@@ -96,6 +96,7 @@ local _KNOCKUP = 30
 local _KNOCKBACK = 31
 local _Asleep = 35
 
+local Allies, Enemies, Turrets, FriendlyTurrets, Units = {}, {}, {}, {}, {}--for r aoe
 --
 local Vector = Vector
 local KeyDown = Control.KeyDown
@@ -961,13 +962,194 @@ function Spell:Cast(castOn)
     --
     return Control.CastSpell(slot, targ or pos)
 end
+local Allies, Enemies, Turrets, FriendlyTurrets, Units = {}, {}, {}, {}, {}
+
+local function IsValid(unit)
+    if (unit
+        and unit.valid
+        and unit.isTargetable
+        and unit.alive
+        and unit.visible
+        and unit.networkID
+        and unit.health > 0
+        and not unit.dead
+    ) then
+        return true;
+    end
+    return false;
+end
+
+local function GetEnemiesAtPos(checkrange, range, pos,target)
+    local enemies = _G.SDK.ObjectManager:GetEnemyHeroes(checkrange)
+	local results = {}
+    for i = 1, #enemies do
+        local enemy = enemies[i]
+        local Range = range * range
+        if GetDistanceSqr(pos, enemy.pos) < Range and IsValid(enemy) and enemy ~= target then
+			table.insert(results, enemy)
+        end
+
+		if target then
+			table.insert(results, target)
+		end
+    end
+    return results
+end
+
+local function AverageClusterPosition(targets)
+	local finalPos = {x = 0, z = 0}
+	for _, target in pairs(targets) do
+		finalPos.x = finalPos.x + target.pos.x
+		finalPos.z = finalPos.z + target.pos.z
+	end
+
+	finalPos.x = finalPos.x / #targets
+	finalPos.z = finalPos.z / #targets
+
+	local point = Vector(finalPos.x, myHero.pos.y, finalPos.z)
+	return point
+end
+
+local function CalculateBoundingBoxAvg(targets, predDelay)
+	local highestX, lowestX, highestZ, lowestZ = 0, math.huge, 0, math.huge
+	local avg = {x = 0, y = 0, z = 0}
+	for k, v in pairs(targets) do
+		local vPos = v.pos
+		if(predDelay > 0) then
+			vPos = v:GetPrediction(math.huge, predDelay)
+		end
+
+		if(vPos.x >= highestX) then
+			highestX = v.pos.x
+		end
+
+		if(vPos.z >= highestZ) then
+			highestZ = v.pos.z
+		end
+
+		if(vPos.x < lowestX) then
+			lowestX = v.pos.x
+		end
+
+		if(vPos.z < lowestZ) then
+			lowestZ = v.pos.z
+		end
+	end
+
+	local vec1 = Vector(highestX, myHero.pos.y, highestZ)
+	local vec2 = Vector(highestX, myHero.pos.y, lowestZ)
+	local vec3 = Vector(lowestX, myHero.pos.y, highestZ)
+	local vec4 = Vector(lowestX, myHero.pos.y, lowestZ)
+
+	avg = (vec1 + vec2 + vec3 + vec4) /4
+
+	return avg
+end
+
+local function FindFurthestTargetFromMe(targets)
+	local furthestTarget = targets[1]
+	local furthestDist = 0
+	for _, target in pairs(targets) do
+		local dist = myHero.pos:DistanceTo(target.pos)
+		if(dist >= furthestDist) then
+			furthestTarget = target
+			furthestDist = dist
+		end
+	end
+
+	return furthestTarget
+end
+
+function DebugCluster()
+
+	local RBuffer = 30
+	local spellRange = 625
+	local radius = 375
+	local searchrange = spellRange + radius - RBuffer
+    local nearbyEnemies = GetEnemiesAtPos(searchrange, radius*2 -RBuffer, target.pos, target)
+    local bestPos, count = CalculateBestCirclePosition(nearbyEnemies, Q3radius - RBuffer/2, true)
+    if(myHero.pos:DistanceTo(bestPos) <= spellRange) and minHit <= count then
+		if(myHero.pos:DistanceTo(bestPos) <= spellRange+1000) then
+			Draw.Circle(bestPos, Q3radius -RBuffer, 1, Draw.Color(85, 255, 255, 255)) --(Alpha, R, G, B)
+		end
+
+	end
+end
+
+function CalculateBestCirclePosition(targets, radius, edgeDetect)
+	local FRange = 400
+	local avgCastPos = CalculateBoundingBoxAvg(targets, 0.25)
+	local newCluster = {}
+	local distantEnemies = {}
+
+	for _, enemy in pairs(targets) do
+		if(enemy.pos:DistanceTo(avgCastPos) > radius) then
+			table.insert(distantEnemies, enemy)
+		else
+			table.insert(newCluster, enemy)
+		end
+	end
+
+	if(#distantEnemies > 0) then
+		local closestDistantEnemy = nil
+		local closestDist = 10000
+		for _, distantEnemy in pairs(distantEnemies) do
+			local dist = distantEnemy.pos:DistanceTo(avgCastPos)
+			if( dist < closestDist ) then
+				closestDistantEnemy = distantEnemy
+				closestDist = dist
+			end
+		end
+		if(closestDistantEnemy ~= nil) then
+			table.insert(newCluster, closestDistantEnemy)
+		end
+
+		--Recursion, we are discarding the furthest target and recalculating the best position
+		if(#newCluster ~= #targets) then
+			return self:CalculateBestCirclePosition(newCluster, radius)
+		end
+	end
+
+	if(edgeDetect) and myHero.pos:DistanceTo(avgCastPos) > FRange then
+
+		local checkPos = myHero.pos:Extended(avgCastPos, FRange)
+		local furthestTarget = FindFurthestTargetFromMe(newCluster)
+		local fakeMyHeroPos = avgCastPos:Extended(myHero.pos, FRange + radius)-- 50)
+		if(furthestTarget ~= nil) then
+			fakeMyHeroPos = avgCastPos:Extended(myHero.pos, FRange + radius - furthestTarget.pos:DistanceTo(avgCastPos))
+		end
+
+		if(myHero.pos:DistanceTo(avgCastPos) >= fakeMyHeroPos:DistanceTo(avgCastPos)) then
+			checkPos = fakeMyHeroPos:Extended(avgCastPos, FRange)
+		end
+
+		local hitAllCheck = true
+		for _, v in pairs(newCluster) do
+			if(v:GetPrediction(math.huge, 0.25):DistanceTo(checkPos) >= radius + 5) then -- the +5 is to fix a precision issue
+				hitAllCheck = false
+			end
+		end
+
+		if hitAllCheck then
+			return checkPos, #newCluster, newCluster
+		end
+
+	end
+
+	return avgCastPos, #targets, targets
+end
  
-function Spell:CastToPred(target, minHitchance)
+local function bestAOE(target, minHit)
     if not target then return end
-    --
-    local predPos, castPos, hC = self:GetPrediction(target)
-    if predPos and hC >= minHitchance then
-        return self:Cast(predPos)
+
+	local RBuffer = 30
+	local spellRange = 620
+	local radius = 375
+	local searchrange = spellRange + radius - RBuffer
+    local nearbyEnemies = GetEnemiesAtPos(searchrange, radius*2 -RBuffer, target.pos, target)
+    local bestPos, count = CalculateBestCirclePosition(nearbyEnemies, radius - RBuffer/2, true)
+    if(myHero.pos:DistanceTo(bestPos) <= spellRange) and minHit <= count then
+       Control.CastSpell(HK_R, bestPos)
     end
 end
  
@@ -1717,6 +1899,45 @@ function Interrupter:OnTick()
     end
 end
 
+--[[]local function GetDamage(spell)
+	local damage = 0
+	local AD = myHero.bonusDamage
+
+	if spell == HK_Q then
+		if GameCanUseSpell(_Q) == 0 then
+			damage = damage + ((myHero:GetSpellData(_Q).level * 35 + 45) + 1.1*AD)
+			if Ready(_W) then
+				damage=damage*2
+			end
+		end
+	elseif spell == HK_E then
+		if GameCanUseSpell(_E) == 0 then
+			damage = damage + ((myHero:GetSpellData(_E).level * 20 + 50) + AD * 0.65)
+		end
+	elseif spell == HK_R then
+		if GameCanUseSpell(_R) == 0 then
+			damage = damage + myHero.totalDamage * 0.65
+		end
+	elseif spell == "Elec" then
+		local baseDmg = 30+(150/(17*(myHero.levelData.lvl)))
+		local bonusDmg = (myHero.ap * 0.25)+(myHero.bonusDamage*0.4)
+		local value = baseDmg + bonusDmg
+		--print("aery",value)
+		damage = value
+	elseif spell == "q2" then
+		damage = damage + ((myHero:GetSpellData(_Q).level * 35 + 45) + 1.1*AD)*0.6
+	elseif spell == Ignite then
+		if myHero:GetSpellData(SUMMONER_1).name == "SummonerDot" and GameCanUseSpell(SUMMONER_1) == 0 then
+			damage = damage +  (50 + 20 * myHero.levelData.lvl)
+		elseif myHero:GetSpellData(SUMMONER_2).name == "SummonerDot" and GameCanUseSpell(SUMMONER_2) == 0 then
+			damage = damage +  (50 + 20 * myHero.levelData.lvl)
+		end
+	end
+	return damage
+end]]--
+
+
+
 if myHero.charName == "Vladimir" then
     
     class 'Vladimir'
@@ -1833,7 +2054,8 @@ if myHero.charName == "Vladimir" then
         Menu.E:MenuElement({id = "Min", name = "Minions To Cast", value = 3, min = 0, max = 6, step = 1})
         --R--
         Menu.R:MenuElement({name = " ", drop = {"Combo Settings"}})
-        Menu.R:MenuElement({id = "Duel", name = "Use To Duel", value = true})
+        Menu.R:MenuElement({id = "Duel", name = "Use in combo", value = true})
+        Menu.R:MenuElement({id = "ComboCount", name = "combo Use When X Enemies(inc target)", value = 2, min = 0, max = 5, step = 1})
         Menu.R:MenuElement({id = "Heroes", name = "Duel Targets", type = MENU})
         Menu.R:MenuElement({name = " ", drop = {"Misc"}})
         Menu.R:MenuElement({id = "Count", name = "Auto Use When X Enemies", value = 2, min = 0, max = 5, step = 1})
@@ -1962,11 +2184,9 @@ keytwotime=0
                 self.Q:Cast(self.target); return
             end
         end
-        if rMinHit ~= 0 and self.R:IsReady() then
-            local bestPos, hit = self.R:GetBestCircularCastPos(nil, GetEnemyHeroes(1000))
-            if bestPos and hit >= rMinHit then
-                self.R:Cast(bestPos); return
-            end
+       local target= _G.SDK.TargetSelector:GetTarget(1000, 1)
+        if target and rMinHit ~= 0 and self.R:IsReady() then
+            bestAOE(target, rMinHit)
         end
         if wMinHit ~= 0 and self.W:IsReady() and IsKeyDown(HK_E) then --*
             local nearby = GetEnemyHeroes(600)
@@ -1982,11 +2202,12 @@ keytwotime=0
 	end
 
 
+        local target= _G.SDK.TargetSelector:GetTarget(1000, 1)
+        if target and self.R:IsReady() and Menu.R.Duel:Value() and Menu.R.Heroes[target.charName] and Menu.R.Heroes[target.charName]:Value() then
+            bestAOE(target, Menu.R.ComboCount:Value())
+        end
         if not self.target then return end
-        --
-        if self.R:IsReady() and Menu.R.Duel:Value() and Menu.R.Heroes[self.target.charName] and Menu.R.Heroes[self.target.charName]:Value() then
-            self.R:CastToPred(self.target, 2)
-        elseif self.Q:IsReady() and Menu.Q.Combo:Value() then
+        if self.Q:IsReady() and Menu.Q.Combo:Value() then
             Control.CastSpell(HK_Q,self.target)
         elseif self.E:IsReady() and not IsKeyDown(HK_E) and Menu.E.Combo:Value() and GetDistance(self.target.pos, myHero.pos)<500 and myHero:GetSpellData(_Q).currentCd>0.4  then
             KeyDown(HK_E)

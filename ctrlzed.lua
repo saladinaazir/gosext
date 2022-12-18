@@ -1,3 +1,5 @@
+local Heroes = {"Zed"}
+if not table.contains(Heroes, myHero.charName) then return end
 local heroes = false
 local checkCount = 0
 local menu = 1
@@ -435,6 +437,10 @@ local function OnProcessSpell()
 	end
 	return nil, nil
 end
+
+
+
+
 
 local DamageLib         = _G.SDK.Damage
 

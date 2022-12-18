@@ -28,9 +28,6 @@ local Allys  =   {}
 local function hasBuff(name, unit)
     for i = 0, unit.buffCount do
         local buff = unit:GetBuff(i)
-		if buff and buff.count > 0 and buff.name:lower():find("pantheone") then
-		print(GetTickCount())
-		end
         if buff and buff.count > 0 and buff.name == name  then
             return true, buff.duration, buff.count
         end
@@ -97,7 +94,7 @@ function Pantheon:__init()
 
     self.Qchannel = false
     self.Echannel = false
-
+    self.Echannel2 = 0
 	self.Qtimer = LocalGameTimer()
 
     self:LoadMenu()
@@ -230,7 +227,7 @@ function Pantheon:Tick()
         end
     end
 	end
-    if self.Echannel or self.Qchannel then
+    if self.Echannel or self.Qchannel or (self.Echannel2+0.35>Game.Timer()) then
         orbwalker:SetAttack(false)
     else
         orbwalker:SetAttack(true)
@@ -324,21 +321,23 @@ local function Ready(spell)
 end
 
 function Pantheon:CastQ2(target)
-    if IsValid(target) and LocalGameTimer() > (self.Qtimer + 4.1)  and Ready(_W) and lastQ + 500 < GetTickCount() 
-    and lastQdown + 150 < GetTickCount() and GetDistanceSquared(myHero.pos,target.pos) < self.Q2.Range ^2
+    if IsValid(target) and LocalGameTimer() > (self.Qtimer + 4.1)  and Ready(_Q) and lastQ + 500 < GetTickCount() 
+    and lastQdown + 150 < GetTickCount() and GetDistanceSquared(myHero.pos,target.pos) < self.Q2.Range ^2 and orbwalker.Modes[1]
     then
-        ControlKeyDown(HK_W)
+		ControlKeyUp(HK_Q)
+        ControlKeyDown(HK_Q)
         lastQdown = GetTickCount()
         self.Qchannel = true
         self.Qtimer = LocalGameTimer()
     end
 
     if IsValid(target) and LocalGameTimer() >= self.Qtimer + 0.35 and LocalGameTimer() < self.Qtimer + 4 
-    and self.Qchannel and Ready(_W)  and  lastQup + 150 < GetTickCount() then
+    and self.Qchannel and Ready(_Q)  and  lastQup + 150 < GetTickCount() then
         local Pred = GetGamsteronPrediction(target, self.Q2, myHero)
-		print("looking")
+		print()
         if Pred.Hitchance >= self.Q2.Hitchance and _G.SDK.Cursor.Step == 0 then
 			_G.SDK.Cursor:Add(HK_Q, Pred.CastPosition) 
+			print("casting")
             -- Control.SetCursorPos(Pred.CastPosition)
             -- ControlKeyUp(HK_Q)
             --Control.CastSpell(HK_Q,Pred.CastPosition)
@@ -360,6 +359,7 @@ function Pantheon:Buffmanager()
             end
             if buff.name == "PantheonE" then
                 self.Echannel = true
+                self.Echannel2 = Game.Timer()
             end
 
         end

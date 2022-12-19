@@ -869,13 +869,13 @@ function Irelia:LoadMenu()
 	self.Menu.ComboSet.Combo:MenuElement({name = " ", drop = {"E1, W, R, Q, E2, Q + (Q when kill / almost kill)"}})
 	self.Menu.ComboSet.Combo:MenuElement({id = "LogicQ", name = "Last[Q]Almost Kill or Kill", key = 0x61, value = false, toggle = true})
 	self.Menu.ComboSet.Combo:MenuElement({id = "UseQ", name = "[Q]", value = true})	
-	self.Menu.ComboSet.Combo:MenuElement({id = "UseW", name = "[W]", value = false})
+	self.Menu.ComboSet.Combo:MenuElement({id = "UseW", name = "auto W2 in combo", value = true})
 	self.Menu.ComboSet.Combo:MenuElement({id = "UseE", name = "[E]", value = true})	
 	self.Menu.ComboSet.Combo:MenuElement({id = "UseE1", name = "Cast E1 in 1v1 (at your feet))", value = true})	
 	self.Menu.ComboSet.Combo:MenuElement({id = "UseR", name = "[R]Single Target if almost killable", value = false})
 	self.Menu.ComboSet.Combo:MenuElement({id = "UseRCount", name = "Auto[R] Multiple Enemys", value = true})	
 	self.Menu.ComboSet.Combo:MenuElement({id = "RCount", name = "Multiple Enemys", value = 2, min = 2, max = 5, step = 1})
-	self.Menu.ComboSet.Combo:MenuElement({id = "Gap", name = "Gapclose [Q]", value = true})
+	self.Menu.ComboSet.Combo:MenuElement({id = "Gap", name = "Gapclose [Q]", value = false})
 	self.Menu.ComboSet.Combo:MenuElement({id = "Stack", name = "Stack Passive near Target/Minion", value = true})		
 	
 	--BurstModeMenu
@@ -937,11 +937,11 @@ function Irelia:LoadMenu()
  
 	--Drawing 
 	self.Menu.MiscSet:MenuElement({type = MENU, id = "Drawing", name = "Drawings Mode"})
-	self.Menu.MiscSet.Drawing:MenuElement({id = "DrawQ", name = "Draw [Q] Range", value = false})
+	self.Menu.MiscSet.Drawing:MenuElement({id = "DrawQ", name = "Draw [Q] Range", value = true})
 	self.Menu.MiscSet.Drawing:MenuElement({id = "DrawR", name = "Draw [R] Range", value = false})
 	self.Menu.MiscSet.Drawing:MenuElement({id = "DrawE", name = "Draw [E] Range", value = false})
 	self.Menu.MiscSet.Drawing:MenuElement({id = "DrawW", name = "Draw [W] Range", value = false})
-	self.Menu.MiscSet.Drawing:MenuElement({id = "DrawKM", name = "Draw killable minions", value = false})		
+	self.Menu.MiscSet.Drawing:MenuElement({id = "DrawKM", name = "Draw killable minions", value = true})
 	self.Menu.MiscSet.Drawing:MenuElement({type = MENU, id = "XY", name = "Info Box Settings"})
 	self.Menu.MiscSet.Drawing.XY:MenuElement({id = "OnOff", name = "Draw Status Box", key = 0x67, value = true, toggle = true})
 	self.Menu.MiscSet.Drawing.XY:MenuElement({id = "Key", name = "Draw HotKey Info", value = true})	
@@ -1019,13 +1019,18 @@ local Mode = GetMode()
 	if target == {} then end
 	
 	wbuff=GetBuffData(myHero, "ireliawdefense")
-	if HasBuff(myHero, "ireliawdefense") and target and wbuff.duration<0.95  then
-			local QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_LINE, Delay =0.06, Radius = 15, Range = 895, Speed = 5000, Collision = false})
-				  QPrediction:GetPrediction(target, myHero)
-			if QPrediction:CanHit(1) then
-		Control.CastSpell(HK_W,QPrediction.CastPosition)
-		end
-
+	if self.Menu.ComboSet.Combo.UseW:Value() and HasBuff(myHero, "ireliawdefense") then
+	    SetAttack(false)
+    	if target and wbuff.duration<0.95 and Mode == "Combo" then
+		    	local QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_LINE, Delay =0.06, Radius = 15, Range = 895, Speed = 5000, Collision = false})
+                      QPrediction:GetPrediction(target, myHero)
+                if QPrediction:CanHit(1) then
+                      Control.CastSpell(HK_W,QPrediction.CastPosition)
+                  SetAttack(true)
+                 end
+        end
+    else
+        SetAttack(true)
 	end
 	
 	if Mode == "Combo" and IsValid(target) and self.Menu.ComboSet.Burst.StartB:Value() and myHero.levelData.lvl >= self.Menu.ComboSet.Burst.Lvl:Value() then
@@ -1036,29 +1041,26 @@ local Mode = GetMode()
 			if QPrediction:CanHit(1)and not (myHero.activeSpell and myHero.activeSpell.valid and myHero.activeSpell.name == "IreliaR") and not cantkill(target,false,true,false)  then
 			Epos = QPrediction.CastPosition + (endp - QPrediction.CastPosition): Normalized() * -150
 				SetMovement(false)
-				 Control.KeyUp("M")
 				Control.CastSpell(HK_E, Epos)
 				SetMovement(true)
 			end	
 		end			
 		
 		if myHero.pos:DistanceTo(target.pos) <= 600 and myHero:GetSpellData(_E).toggleState == 1 and Ready(_E) and not ISMarked(1000) then
-					for i, target2 in ipairs(GetEnemyHeroes()) do
-			if target2 and target and target2 ~= target and myHero.pos:DistanceTo(target2.pos)<775 and IsValid(target2)  then
-			aimp=target2.pos + (target.pos- target2.pos): Normalized() * -150
-				if aimp then
-					SetMovement(false)
-					 Control.KeyUp("M")
-					Control.CastSpell(HK_E,aimp)
-					SetMovement(true)
+			for i, target2 in ipairs(GetEnemyHeroes()) do
+				if target2 and target and target2 ~= target and myHero.pos:DistanceTo(target2.pos)<775 and IsValid(target2)  then
+				aimp=target2.pos + (target.pos- target2.pos): Normalized() * -150
+					if aimp then
+						SetMovement(false)
+						Control.CastSpell(HK_E,aimp)
+						SetMovement(true)
+					end
 				end
-			end
 
-		end
-		if self.Menu.ComboSet.Combo.UseE1:Value() then
-		 Control.KeyUp("M")
-		Control.CastSpell(HK_E, myHero.pos)
-		end
+			end
+			if self.Menu.ComboSet.Combo.UseE1:Value() then
+				Control.CastSpell(HK_E, myHero.pos)
+			end
 		end
 		
 		if myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) and HasBuff(target, "ireliamark") and not cantkill(target,false,true,true) then
@@ -1067,9 +1069,9 @@ local Mode = GetMode()
 			end	
 		end		
 
-		if self.Menu.ComboSet.Combo.UseW:Value() and myHero.pos:DistanceTo(target.pos) <= 400 and Ready(_W) and not Ready(_E) then					
-			Control.CastSpell(HK_W, target)
-		end
+--		if self.Menu.ComboSet.Combo.UseW:Value() and myHero.pos:DistanceTo(target.pos) <= 400 and Ready(_W) and not Ready(_E) then
+		--	Control.CastSpell(HK_W, target)
+	--	end
 		
 		if myHero.pos:DistanceTo(target.pos) <= self.Menu.MiscSet.Rrange.R:Value() and Ready(_R) and not ISMarked(1000) and not cantkill(target,false,true,false) then
 	        local Passive = CalcExtraDmg(target, 2)*3
@@ -1343,11 +1345,11 @@ if target == {} then end
 			Control.CastSpell(HK_Q, target)			
 		end
 		
-		if self.Menu.ComboSet.Combo.UseW:Value() and Ready(_W) and not Ready(_E) then
-			if myHero.pos:DistanceTo(target.pos) <= 825 then					
-				Control.CastSpell(HK_W, target)
-			end
-		end	
+--		if self.Menu.ComboSet.Combo.UseW:Value() and Ready(_W) and not Ready(_E) then
+--			if myHero.pos:DistanceTo(target.pos) <= 825 then
+--				Control.CastSpell(HK_W, target)
+--			end
+--		end
 		
 		if self.Menu.ComboSet.Combo.UseR:Value() and Ready(_R) and not ISMarked(1000) then
 			local count = GetEnemyCount(1500, myHero)

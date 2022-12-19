@@ -987,7 +987,7 @@ function Irelia:LoadMenu()
 	--LaneClear Menu
 	self.Menu.ClearSet:MenuElement({type = MENU, id = "Clear", name = "Clear Mode"})
 	self.Menu.ClearSet.Clear:MenuElement({type = MENU, id = "Last", name = "LastHit"})	
-	self.Menu.ClearSet.Clear.Last:MenuElement({id = "UseQ", name = "LastHit[Q]", value = true})		
+	self.Menu.ClearSet.Clear.Last:MenuElement({id = "UseQ", name = "LastHit[Q]", value = false})
 	self.Menu.ClearSet.Clear:MenuElement({id = "Mana", name = "Min Mana", value = 40, min = 0, max = 100, identifier = "%"})
 	
 	--JungleClear Menu
@@ -1005,7 +1005,7 @@ function Irelia:LoadMenu()
 	--HarassMenu
     self.Menu:MenuElement({type = MENU, id = "Harass", name = "Harass Settings"})	
 	
-	self.Menu.Harass:MenuElement({id = "UseE", name = "[E]", value = true})
+	self.Menu.Harass:MenuElement({id = "UseE", name = "[E]", value = false})
 		
     self.Menu:MenuElement({type = MENU, id = "MiscSet", name = "Misc Settings"})
 
@@ -1460,7 +1460,7 @@ if target == {} then end
 			
 			if myHero.pos:DistanceTo(target.pos) >= 300 and myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) and not cantkill(target,true,true,true) then
 				local QDmg = HeroQdmg(target) + CalcExtraDmg(target)
-				if (QDmg*2) >= target.health then
+				if (QDmg*1.75) >= target.health then
 					Control.CastSpell(HK_Q, target)	
 				end	
 			end		

@@ -549,18 +549,59 @@ local function CalcPhysicalDamage(source, target, amount)
     return math.max(math.floor(value * amount), 0)
 
 end
+local function CalcMagicalDamage(source, target, amount, time)
+    local passiveMod = 0
+
+    local totalMR = target.magicResist + target.bonusMagicResist
+    if totalMR < 0 then
+        passiveMod = 2 - 100 / (100 - totalMR)
+    elseif totalMR * source.magicPenPercent - source.magicPen < 0 then
+        passiveMod = 1
+    else
+        passiveMod = 100 / (100 + totalMR * source.magicPenPercent - source.magicPen)
+    end
+    local dmg = math.max(math.floor(passiveMod * amount), 0)
+
+    if target.charName == "Kassadin" then
+        dmg = dmg * 0.85
+	elseif target.charName == "Malzahar" and HasBuff(target, "malzaharpassiveshield") then
+		dmg = dmg * 0.1
+    end
+
+    if HasBuff(target, "cursedtouch") then
+        dmg = dmg + amount * 0.1
+    end
+    return dmg
+end
 
 local function HeroQdmg(target)
     local damage=(-15+(myHero:GetSpellData(_Q).level*20)+ 0.6 * myHero.totalDamage)
     return  CalcPhysicalDamage(myHero, target, damage)
 end
+local function HeroWdmg(target)
+    local damage=(-15+(myHero:GetSpellData(_W).level*45)+ 1.2 * myHero.totalDamage +1.2*myHero.ap)
+    return  CalcPhysicalDamage(myHero, target, damage)
+end
+local function HeroEdmg(target)
+    local damage=(35+(myHero:GetSpellData(_E).level*45)+ 0.8 * myHero.ap)
+    return  CalcMagicalDamage(myHero, target, damage)--ik ik magic dmg fight me irl
+end
+local function HeroRdmg(target)
+    local damage=(-15+(myHero:GetSpellData(_R).level*125)+ 0.7 * myHero.ap)
+    return  CalcMagicalDamage(myHero, target, damage)
+end
+local function HeroAAdmg(target)
+    local damage= myHero.totalDamage*(1+myHero.critChance)
+    return  CalcPhysicalDamage(myHero, target, damage)
+end
+
 
 function CalcExtraDmg2(unit)
 	local total = 0	
 	local Passive = HasBuff(myHero, "ireliapassivestacksmax")								--Irelia Passive
 
 	local BladeKing = CheckDmgItems(3153)													--Blade of the ruined King
-
+	
 	local Divine = CheckDmgItems(6632)														--Divine Sunderer  
 	local Sheen = CheckDmgItems(3057)														--Sheen				
 	local Black = CheckDmgItems(3071) 														--Black Cleaver    
@@ -569,15 +610,15 @@ function CalcExtraDmg2(unit)
 	local LvL = myHero.levelData.lvl 
 
 	if Passive then
-		total = total + CalcMagicalDamage(myHero, unit, (7+ (3 * LvL)) + 0.20 * myHero.bonusDamage)
+		total = total +  (7+ (3 * LvL)) + 0.20 * myHero.bonusDamage
 	end
 	
 	if BladeKing then
 		
 			if unit.health*0.1 > 40 then
-				total = total + CalcPhysicalDamage(myHero, unit, 40)
+				total = total + 40
 			else	
-				total = total + CalcPhysicalDamage(myHero, unit, (unit.health*0.1))
+				total = total + unit.health*0.1
 			end
 
 		
@@ -586,22 +627,22 @@ function CalcExtraDmg2(unit)
 
 	
 	if Titanic and myHero:GetSpellData(Titanic).currentCd == 0 then
-		total = total + CalcPhysicalDamage(myHero, unit, (myHero.maxHealth*0.01) + (5+myHero.maxHealth*0.015))
+		total = total +(myHero.maxHealth*0.01) + (5+myHero.maxHealth*0.015)
 	end	
 
 	if Sheen and myHero:GetSpellData(Sheen).currentCd == 0 then 
-		total = total + CalcPhysicalDamage(myHero, unit, myHero.baseDamage)
+		total = total + myHero.baseDamage
 	end	
 
 	if Divine and myHero:GetSpellData(Divine).currentCd == 0 then  
 
 			if unit.maxHealth*0.1 < 1.5*myHero.baseDamage then
-				total = total + CalcPhysicalDamage(myHero, unit, 1.5*myHero.baseDamage)
+				total = total + 1.5*myHero.baseDamage
 			else
 				if unit.maxHealth*0.1 > 2.5*myHero.baseDamage then
-					total = total + CalcPhysicalDamage(myHero, unit, 2.5*myHero.baseDamage)
+					total = total + 2.5*myHero.baseDamage
 				else
-					total = total + CalcPhysicalDamage(myHero, unit, unit.maxHealth*0.1)
+					total = total +  unit.maxHealth*0.1
 				end
 			end
 
@@ -610,7 +651,7 @@ function CalcExtraDmg2(unit)
 
 
 	if Trinity and myHero:GetSpellData(Trinity).currentCd == 0 then 		
-		total = total + CalcPhysicalDamage(myHero, unit, 2*myHero.baseDamage) 	
+		total = total + 2*myHero.baseDamage
 	end
 
 
@@ -630,74 +671,125 @@ function CalcExtraDmg(unit, typ) -- typ 1 = minion / typ 2 = Enemy
 	local Trinity = CheckDmgItems(3078)														--Trinity Force
 	local Eclipse = CheckDmgItems(6692)														--Eclipse		
 	local LvL = myHero.levelData.lvl 	
-
-	if Passive then
-		total = total + CalcMagicalDamage(myHero, unit, (7+ (3 * LvL)) + 0.20 * myHero.bonusDamage)
-	end
-	
-	if BladeKing then
-		if typ == 1 then
-			if unit.health*0.1 > 40 then
-				total = total + CalcPhysicalDamage(myHero, unit, 40)
-			else	
-				total = total + CalcPhysicalDamage(myHero, unit, (unit.health*0.1))
-			end
-		else
-			total = total + CalcPhysicalDamage(myHero, unit, (unit.health*0.1) + (HasBuff(myHero, "3153speed") and CalcMagicalDamage(myHero, unit, 40+6.47*LvL) or 0))
+	if typ== 1 then 
+		if Passive then
+			total = total +  (7+ (3 * LvL)) + 0.20 * myHero.bonusDamage
 		end
-	end
-	
-	if WitsEnd and myHero:GetSpellData(WitsEnd).currentCd == 0 then
-		total = total + CalcMagicalDamage(myHero, unit, 15 + (4.44 * LvL))
-	end
+			
+		if BladeKing then
+			if unit.health*0.1 > 40 then
+				total = total + 40
+			else	
+				total = total + (unit.health*0.1)
+			end
 
-	if RecurveBow and myHero:GetSpellData(RecurveBow).currentCd == 0 then
-		total = total + CalcPhysicalDamage(myHero, unit, 15)
-	end	
-	
-	if Titanic and myHero:GetSpellData(Titanic).currentCd == 0 then
-		total = total + CalcPhysicalDamage(myHero, unit, (myHero.maxHealth*0.01) + (5+myHero.maxHealth*0.015))
-	end	
+			
+		end
+		
+		if WitsEnd and myHero:GetSpellData(WitsEnd).currentCd == 0 then
+			total = total +  15 + (4.44 * LvL)
+		end
 
-	if Sheen and myHero:GetSpellData(Sheen).currentCd == 0 then 
-		total = total + CalcPhysicalDamage(myHero, unit, myHero.baseDamage)
-	end	
+		if RecurveBow and myHero:GetSpellData(RecurveBow).currentCd == 0 then
+			total = total + 15
+		end	
+		
+		if Titanic and myHero:GetSpellData(Titanic).currentCd == 0 then
+			total = total + (myHero.maxHealth*0.01) + (5+myHero.maxHealth*0.015)
+		end	
 
-	if Divine and myHero:GetSpellData(Divine).currentCd == 0 then  
-		if typ == 1 then
+		if Sheen and myHero:GetSpellData(Sheen).currentCd == 0 then 
+			total = total +  myHero.baseDamage
+		end	
+
+		if Divine and myHero:GetSpellData(Divine).currentCd == 0 then  
+
 			if unit.maxHealth*0.1 < 1.5*myHero.baseDamage then
-				total = total + CalcPhysicalDamage(myHero, unit, 1.5*myHero.baseDamage)
+				total = total +  1.5*myHero.baseDamage
 			else
 				if unit.maxHealth*0.1 > 2.5*myHero.baseDamage then
-					total = total + CalcPhysicalDamage(myHero, unit, 2.5*myHero.baseDamage)
+					total = total + 2.5*myHero.baseDamage
+				else
+					total = total + unit.maxHealth*0.1
+				end
+			end
+
+		end	
+
+
+		if Trinity and myHero:GetSpellData(Trinity).currentCd == 0 then 		
+			total = total +  2*myHero.baseDamage
+		end
+
+	else
+		if Passive then
+			total = total + CalcMagicalDamage(myHero, unit, (7+ (3 * LvL)) + 0.20 * myHero.bonusDamage)
+		end
+		
+		if BladeKing then
+			if typ == 1 then
+				if unit.health*0.1 > 40 then
+					total = total + CalcPhysicalDamage(myHero, unit, 40)
+				else	
+					total = total + CalcPhysicalDamage(myHero, unit, (unit.health*0.1))
+				end
+			else
+				total = total + CalcPhysicalDamage(myHero, unit, (unit.health*0.1) + (HasBuff(myHero, "3153speed") and CalcMagicalDamage(myHero, unit, 40+6.47*LvL) or 0))
+			end
+		end
+		
+		if WitsEnd and myHero:GetSpellData(WitsEnd).currentCd == 0 then
+			total = total + CalcMagicalDamage(myHero, unit, 15 + (4.44 * LvL))
+		end
+
+		if RecurveBow and myHero:GetSpellData(RecurveBow).currentCd == 0 then
+			total = total + CalcPhysicalDamage(myHero, unit, 15)
+		end	
+		
+		if Titanic and myHero:GetSpellData(Titanic).currentCd == 0 then
+			total = total + CalcPhysicalDamage(myHero, unit, (myHero.maxHealth*0.01) + (5+myHero.maxHealth*0.015))
+		end	
+
+		if Sheen and myHero:GetSpellData(Sheen).currentCd == 0 then 
+			total = total + CalcPhysicalDamage(myHero, unit, myHero.baseDamage)
+		end	
+
+		if Divine and myHero:GetSpellData(Divine).currentCd == 0 then  
+			if typ == 1 then
+				if unit.maxHealth*0.1 < 1.5*myHero.baseDamage then
+					total = total + CalcPhysicalDamage(myHero, unit, 1.5*myHero.baseDamage)
+				else
+					if unit.maxHealth*0.1 > 2.5*myHero.baseDamage then
+						total = total + CalcPhysicalDamage(myHero, unit, 2.5*myHero.baseDamage)
+					else
+						total = total + CalcPhysicalDamage(myHero, unit, unit.maxHealth*0.1)
+					end
+				end
+			else
+				if unit.maxHealth*0.1 < 1.5*myHero.baseDamage then
+					total = total + CalcPhysicalDamage(myHero, unit, 1.5*myHero.baseDamage)
 				else
 					total = total + CalcPhysicalDamage(myHero, unit, unit.maxHealth*0.1)
 				end
 			end
-		else
-			if unit.maxHealth*0.1 < 1.5*myHero.baseDamage then
-				total = total + CalcPhysicalDamage(myHero, unit, 1.5*myHero.baseDamage)
-			else
-				total = total + CalcPhysicalDamage(myHero, unit, unit.maxHealth*0.1)
-			end
-		end
-	end	
+		end	
 
-	if typ == 2 and Black then 
-		local Buff = GetBuffData(unit, "3071blackcleavermainbuff")
-		if Buff.count == 6 then
-			total = total + CalcPhysicalDamage(myHero, unit, (unit.maxHealth-unit.health)*0.05)
+		if typ == 2 and Black then 
+			local Buff = GetBuffData(unit, "3071blackcleavermainbuff")
+			if Buff.count == 6 then
+				total = total + CalcPhysicalDamage(myHero, unit, (unit.maxHealth-unit.health)*0.05)
+			end	
+		end
+
+		if Trinity and myHero:GetSpellData(Trinity).currentCd == 0 then 		
+			total = total + CalcPhysicalDamage(myHero, unit, 2*myHero.baseDamage) 	
+		end
+
+		if typ == 2 and Eclipse and myHero:GetSpellData(Eclipse).currentCd > 6.5 then 
+			total = total + CalcPhysicalDamage(myHero, unit, unit.maxHealth*0.06)
 		end	
 	end
-
-	if Trinity and myHero:GetSpellData(Trinity).currentCd == 0 then 		
-		total = total + CalcPhysicalDamage(myHero, unit, 2*myHero.baseDamage) 	
-	end
-
-	if typ == 2 and Eclipse and myHero:GetSpellData(Eclipse).currentCd > 6.5 then 
-		total = total + CalcPhysicalDamage(myHero, unit, unit.maxHealth*0.06)
-	end	
-	return total		
+	return total			
 end
 
 ----------------------------------------------------
@@ -1076,10 +1168,10 @@ local Mode = GetMode()
 		if myHero.pos:DistanceTo(target.pos) <= self.Menu.MiscSet.Rrange.R:Value() and Ready(_R) and not ISMarked(1000) and not cantkill(target,false,true,false) then
 	        local Passive = CalcExtraDmg(target, 2)*3
 			local QDmg = Ready(_Q) and HeroQdmg(target)*3 or 0
-			local WDmg = Ready(_W) and getdmg("W", target, myHero) or 0
-			local EDmg = Ready(_E) and getdmg("E", target, myHero) or 0
-			local RDmg = getdmg("R", target, myHero)
-			local AADmg = getdmg("AA", target, myHero)*2
+			local WDmg = Ready(_W) and HeroWdmg(target) or 0
+			local EDmg = Ready(_E) and HeroEdmg(target) or 0
+			local RDmg = HeroRdmg(target)
+			local AADmg = HeroAAdmg(target)*2
 			local FullDmg = Passive+QDmg+WDmg+EDmg+RDmg+AADmg
 			if FullDmg >= target.health then					
 				self:CastR(target)
@@ -1504,7 +1596,7 @@ function Irelia:CastQMinion(target)
     local minion = GameMinion(i)
 
 		if minion.team == TEAM_ENEMY and IsValid(minion) then
-			local Dmg = HeroQdmg(target) or getdmg("W", target, myHero) or getdmg("E", target, myHero) or getdmg("R", target, myHero)
+			local Dmg = HeroQdmg(target)
 			if IsValid(target) and myHero.pos:DistanceTo(minion.pos) <= 600 and target.pos:DistanceTo(myHero.pos) < minion.pos:DistanceTo(target.pos) and not IsUnderTurret(minion) and target.health > Dmg then
 			local QDmg = MinionQdmg() + CalcExtraDmg(minion)
 				if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) and not HasBuff(target, "ireliamark") then

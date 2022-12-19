@@ -521,6 +521,39 @@ local function ActiveModes()
 	end
 	return false
 end
+local function MinionQdmg()
+    local damage=(-15+(myHero:GetSpellData(_Q).level*20)+(43 + (12 * myHero.levelData.lvl))+ 0.6 * myHero.totalDamage)
+    return damage
+end
+
+local function CalcPhysicalDamage(source, target, amount)
+    local armorPenetrationPercent = source.armorPenPercent
+    local armorPenetrationFlat = source.armorPen *
+                                     (0.6 + 0.4 * source.levelData.lvl / 18)
+    local bonusArmorPenetrationMod = source.bonusArmorPenPercent
+
+    local armor = target.armor
+    local bonusArmor = target.bonusArmor
+    local value
+
+    if armor < 0 then
+        value = 2 - 100 / (100 - armor)
+    elseif armor * armorPenetrationPercent - bonusArmor *
+        (1 - bonusArmorPenetrationMod) - armorPenetrationFlat < 0 then
+        value = 1
+    else
+        value = 100 / (100 + armor * armorPenetrationPercent - bonusArmor *
+                    (1 - bonusArmorPenetrationMod) - armorPenetrationFlat)
+    end
+
+    return math.max(math.floor(value * amount), 0)
+
+end
+
+local function HeroQdmg(target)
+    local damage=(-15+(myHero:GetSpellData(_Q).level*20)+ 0.6 * myHero.totalDamage)
+    return  CalcPhysicalDamage(myHero, target, damage)
+end
 
 function CalcExtraDmg2(unit)
 	local total = 0	
@@ -1003,6 +1036,7 @@ local Mode = GetMode()
 			if QPrediction:CanHit(1)and not (myHero.activeSpell and myHero.activeSpell.valid and myHero.activeSpell.name == "IreliaR") and not cantkill(target,false,true,false)  then
 			Epos = QPrediction.CastPosition + (endp - QPrediction.CastPosition): Normalized() * -150
 				SetMovement(false)
+				 Control.KeyUp("M")
 				Control.CastSpell(HK_E, Epos)
 				SetMovement(true)
 			end	
@@ -1014,13 +1048,15 @@ local Mode = GetMode()
 			aimp=target2.pos + (target.pos- target2.pos): Normalized() * -150
 				if aimp then
 					SetMovement(false)
+					 Control.KeyUp("M")
 					Control.CastSpell(HK_E,aimp)
 					SetMovement(true)
 				end
 			end
 
 		end
-		if self.Menu.ComboSet.Combo.UseE1:Value() then	
+		if self.Menu.ComboSet.Combo.UseE1:Value() then
+		 Control.KeyUp("M")
 		Control.CastSpell(HK_E, myHero.pos)
 		end
 		end
@@ -1037,7 +1073,7 @@ local Mode = GetMode()
 		
 		if myHero.pos:DistanceTo(target.pos) <= self.Menu.MiscSet.Rrange.R:Value() and Ready(_R) and not ISMarked(1000) and not cantkill(target,false,true,false) then
 	        local Passive = CalcExtraDmg(target, 2)*3
-			local QDmg = Ready(_Q) and getdmg("Q", target, myHero, 1)*3 or 0
+			local QDmg = Ready(_Q) and HeroQdmg(target)*3 or 0
 			local WDmg = Ready(_W) and getdmg("W", target, myHero) or 0
 			local EDmg = Ready(_E) and getdmg("E", target, myHero) or 0
 			local RDmg = getdmg("R", target, myHero)
@@ -1056,14 +1092,14 @@ local Mode = GetMode()
 		end		
 
 		if myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) then			 
-			local QDmg = getdmg("Q", target, myHero) + CalcExtraDmg(target)	 		
+			local QDmg = HeroQdmg(target) + CalcExtraDmg(target)
 			if (QDmg >= target.health and CheckHPPred(target) >= 1) and IsValid(target) and not cantkill(target,true,true,true) then
 				Control.CastSpell(HK_Q, target)	
 			end
 		end	
 		
 		if myHero.pos:DistanceTo(target.pos) > 600 and myHero.pos:DistanceTo(target.pos) < 775 and Ready(_Q) and Ready(_E) then
-			local QDmg = getdmg("Q", target, myHero) + CalcExtraDmg(target)			
+			local QDmg = HeroQdmg(target) + CalcExtraDmg(target)
 			if QDmg >= target.health and not HasBuff(target, "ireliamark") then				
 				if myHero:GetSpellData(_E).toggleState == 1 then
 							for i, target2 in ipairs(GetEnemyHeroes()) do
@@ -1071,13 +1107,14 @@ local Mode = GetMode()
 			aimp=target2.pos + (target.pos- target2.pos): Normalized() * -150
 				if aimp then
 					SetMovement(false)
+					 Control.KeyUp("M")
 					Control.CastSpell(HK_E,aimp)
 					SetMovement(true)
 				end
 			end
 		end
 			
-	
+         Control.KeyUp("M")
 		Control.CastSpell(HK_E, myHero.pos)
 				end
 			end
@@ -1087,6 +1124,7 @@ local Mode = GetMode()
 			if QPrediction:CanHit(1) and not ISMarked(1000) and not (myHero.activeSpell and myHero.activeSpell.valid and myHero.activeSpell.name == "IreliaR") and not cantkill(target,false,true,false) then
 				Epos = QPrediction.CastPosition + (endp - QPrediction.CastPosition): Normalized() * -150
 					SetMovement(false)
+					 Control.KeyUp("M")
 					Control.CastSpell(HK_E, Epos)
 					SetMovement(true)
 				end	
@@ -1141,10 +1179,10 @@ local function GetKillableMinion()
 	if Ready(_Q) and KillMinion == nil then
 		local Minions = GetMinions(600, 1)
 		if next(Minions) == nil then return end
-		
+		local qmindmg = MinionQdmg()
 		for i = 1, #Minions do
 			local minion = Minions[i]
-			local QDmg = getdmg("Q", minion, myHero, 2) + CalcExtraDmg(minion, 1)
+			local QDmg = qmindmg + CalcExtraDmg(minion, 1)
 			if (minion.team == TEAM_ENEMY) and QDmg > minion.health and IsValid(minion) and GetDistance(minion.pos, mousePos) < (200) then
 				
 				KillMinion = minion
@@ -1153,13 +1191,13 @@ local function GetKillableMinion()
 		end
 		for i = 1, #Minions do
 			local minion = Minions[i]
-			local QDmg = getdmg("Q", minion, myHero, 2) + CalcExtraDmg(minion, 1)
+			local QDmg = qmindmg + CalcExtraDmg(minion, 1)
 			if (minion.team == TEAM_ENEMY) and QDmg > minion.health and IsValid(minion) and GetDistance(minion.pos, mousePos) < ((400 and not mode=="Combo") or 500) then
 				
 				KillMinion = minion
 				return
 			elseif (minion.team == TEAM_JUNGLE) then
-				local QDmg2 = getdmg("Q", minion, myHero, 1) + CalcExtraDmg2(minion)
+				local QDmg2 = HeroQdmg(minion) + CalcExtraDmg2(minion)
 				if QDmg2 > minion.health and IsValid(minion) and GetDistance(minion.pos, mousePos) < ((400 and not mode=="Combo") or 500) then
 				
 								KillMinion = minion
@@ -1178,17 +1216,18 @@ local function locate( table, value )
 end
 
 
+
 local function DrawKillableMinion()
 	dkmtick=dkmtick+1
 	lastdkm=Game.Timer()
 		local Minions = GetMinions(800, 1)
 		if Minions == nil then return end
-
+        local qbasedmg=MinionQdmg()
 		for i = 1, #Minions do
 			local minion = Minions[i]
 		
 			if not locate(qminions,minion.name)then
-			local QDmg = getdmg("Q", minion, myHero, 2) + CalcExtraDmg2(minion)
+			local QDmg = qbasedmg + CalcExtraDmg2(minion)
 			if minion.team == TEAM_ENEMY and QDmg > minion.health and IsValid(minion) then
 			if KillMinion == nil then
 				if GetDistance(minion.pos, mousePos) < (230) then
@@ -1197,7 +1236,7 @@ local function DrawKillableMinion()
 			end
 				table.insert(qminions, minion.name)
 			elseif (minion.team == TEAM_JUNGLE) then
-				local QDmg2 = getdmg("Q", minion, myHero, 1) + CalcExtraDmg2(minion)
+				local QDmg2 = HeroQdmg(minion) + CalcExtraDmg2(minion)
 				if QDmg2 > minion.health and IsValid(minion)  then
 				table.insert(qminions, minion.name)
 				end
@@ -1224,13 +1263,14 @@ function Irelia:Flee()
 		mode=GetMode()
 	if self.Menu.MiscSet.Flee.Q:Value() and Ready(_Q) then
 		if KillMinion and GetDistance(KillMinion.pos, mousePos) < (300) then
+		             Control.KeyUp("M")
 					Control.CastSpell(HK_Q,KillMinion)	 
 					KillMinion = nil
 		else
 			GetKillableMinion()		
 		if KillMinion and GetDistance(KillMinion.pos, mousePos) < ((400 and not mode=="Combo") or 500) then
 				
-				
+				     Control.KeyUp("M")
 					Control.CastSpell(HK_Q,KillMinion)	 
 				--	CastSpell(HK_Q, KillMinion, LastQ)	 
 				--	LastQ =((GetDistance(myHero.pos, KillMinion.pos)/(1500+myHero.ms)*1000)+50)
@@ -1318,14 +1358,14 @@ if target == {} then end
 		
 		if self.Menu.ComboSet.Combo.LogicQ:Value() then 				 
 			if myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) then
-				local QDmg = getdmg("Q", target, myHero) + CalcExtraDmg(target)
+				local QDmg = HeroQdmg(target) + CalcExtraDmg(target)
 				if (QDmg >= target.health and CheckHPPred(target) >= 1) and IsValid(target) and not cantkill(target,true,true,true) then
 					Control.CastSpell(HK_Q, target)		
 				end
 			end			
 			
 			if myHero.pos:DistanceTo(target.pos) >= 300 and myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) and not cantkill(target,true,true,true) then
-				local QDmg = getdmg("Q", target, myHero) + CalcExtraDmg(target)
+				local QDmg = HeroQdmg(target) + CalcExtraDmg(target)
 				if (QDmg*2) >= target.health then
 					Control.CastSpell(HK_Q, target)	
 				end	
@@ -1334,7 +1374,7 @@ if target == {} then end
 		else
 				
 			if myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) then
-				local QDmg = getdmg("Q", target, myHero) + CalcExtraDmg(target)
+				local QDmg = HeroQdmg(target) + CalcExtraDmg(target)
 				if (QDmg >= target.health and CheckHPPred(target) >= 1) and IsValid(target) and not cantkill(target,true,true,true) then
 					Control.CastSpell(HK_Q, target)		
 				end
@@ -1365,20 +1405,23 @@ if target == nil then return end
 end
 
 function Irelia:LastHit()
+local qmindmg = MinionQdmg()
 	for i = 1, GameMinionCount() do
     local minion = GameMinion(i)
 
 		if minion.team == TEAM_ENEMY and IsValid(minion) then         
 			if self.Menu.ClearSet.LastHit.UseQ:Value() and myHero.mana/myHero.maxMana >= self.Menu.ClearSet.LastHit.Mana:Value() / 100 and myHero.pos:DistanceTo(minion.pos) <= 600 and Ready(_Q) then
-			local QDmg = getdmg("Q", minion, myHero, 2) + CalcExtraDmg(minion) 
+			local QDmg = qmindmg + CalcExtraDmg(minion)
 
 				if not IsUnderTurret(minion) then	
 					if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) then
+					     Control.KeyUp("M")
 						Control.CastSpell(HK_Q, minion)						
 					end	
 				else  
 					if AllyMinionUnderTower() then
-						if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) then					
+						if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) then
+						     Control.KeyUp("M")
 							Control.CastSpell(HK_Q, minion)
 						end
 					end	
@@ -1394,9 +1437,11 @@ if HasBuff(myHero, "ireliapassivestacksmax") then return end
     local minion = GameMinion(i)
 
 		if minion.team == TEAM_ENEMY then
+
 			if target.pos:DistanceTo(minion.pos) <= 400 and myHero.pos:DistanceTo(minion.pos) <= 600 and Ready(_Q) and not HasBuff(target, "ireliamark") then
-			local QDmg = getdmg("Q", minion, myHero, 2) + CalcExtraDmg(minion) 
+			local QDmg = MinionQdmg() + CalcExtraDmg(minion)
 				if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValid(minion) then
+				     Control.KeyUp("M")
 					Control.CastSpell(HK_Q, minion)
 				end	
 			end
@@ -1416,8 +1461,9 @@ function Irelia:JungleClear()
             end           
 			
 			if myHero.pos:DistanceTo(minion.pos) <= 600 and self.Menu.ClearSet.JClear.UseQ:Value() and myHero.mana/myHero.maxMana >= self.Menu.ClearSet.JClear.Mana:Value() / 100 and Ready(_Q) then
-			local QDmg = getdmg("Q", minion, myHero) + CalcExtraDmg(minion) 
+			local QDmg = HeroQdmg(minion) + CalcExtraDmg(minion)
 				if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) then
+				     Control.KeyUp("M")
 					Control.CastSpell(HK_Q, minion)
 				end	
 			end	
@@ -1428,19 +1474,21 @@ end
 function Irelia:Clear()
 	for i = 1, GameMinionCount() do
     local minion = GameMinion(i)
-
+    local qmindmg = MinionQdmg()
 		if minion.team == TEAM_ENEMY and IsValid(minion) then
       
 			if myHero.pos:DistanceTo(minion.pos) <= 600 and self.Menu.ClearSet.Clear.Last.UseQ:Value() and myHero.mana/myHero.maxMana >= self.Menu.ClearSet.Clear.Mana:Value() / 100 and Ready(_Q) then
-			local QDmg = getdmg("Q", minion, myHero, 2) + CalcExtraDmg(minion) 
+			local QDmg = qmindmg + CalcExtraDmg(minion)
 				if not IsUnderTurret(minion) then	
 					if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) then
+					     Control.KeyUp("M")
 						Control.CastSpell(HK_Q, minion)
 					end	
 				end	
 
 				if IsUnderTurret(minion) and AllyMinionUnderTower() then
-					if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) then					
+					if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) then
+					     Control.KeyUp("M")
 						Control.CastSpell(HK_Q, minion)
 					end
 				end				
@@ -1454,10 +1502,11 @@ function Irelia:CastQMinion(target)
     local minion = GameMinion(i)
 
 		if minion.team == TEAM_ENEMY and IsValid(minion) then
-			local Dmg = getdmg("Q", target, myHero) or getdmg("W", target, myHero) or getdmg("E", target, myHero) or getdmg("R", target, myHero)
+			local Dmg = HeroQdmg(target) or getdmg("W", target, myHero) or getdmg("E", target, myHero) or getdmg("R", target, myHero)
 			if IsValid(target) and myHero.pos:DistanceTo(minion.pos) <= 600 and target.pos:DistanceTo(myHero.pos) < minion.pos:DistanceTo(target.pos) and not IsUnderTurret(minion) and target.health > Dmg then
-			local QDmg = getdmg("Q", minion, myHero, 2) + CalcExtraDmg(minion) 
+			local QDmg = MinionQdmg() + CalcExtraDmg(minion)
 				if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) and not HasBuff(target, "ireliamark") then
+				 Control.KeyUp("M")
 					Control.CastSpell(HK_Q, minion)
 				end					
 			end
@@ -1470,8 +1519,9 @@ function Irelia:Gapclose(target)
     local minion = GameMinion(i)
 	
 		if Ready(_Q) and myHero.pos:DistanceTo(minion.pos) <= 600 and minion.team == TEAM_ENEMY and IsValid(minion) then
-			local QDmg = getdmg("Q", minion, myHero, 2) + CalcExtraDmg(minion)
-			if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and myHero.pos:DistanceTo(target.pos) > target.pos:DistanceTo(minion.pos) then 
+			local QDmg = MinionQdmg() + CalcExtraDmg(minion)
+			if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and myHero.pos:DistanceTo(target.pos) > target.pos:DistanceTo(minion.pos) then
+			 Control.KeyUp("M")
 				Control.CastSpell(HK_Q, minion)				
 			end	
 		end
@@ -1571,6 +1621,7 @@ function Irelia:CastE(unit)
 			aimp=target2.pos + (unit.pos- target2.pos): Normalized() * -220
 				if aimp then
 					SetMovement(false)
+					 Control.KeyUp("M")
 					Control.CastSpell(HK_E,aimp)
 					SetMovement(true)
 				end
@@ -1578,6 +1629,7 @@ function Irelia:CastE(unit)
 		end
 			
 		if  self.Menu.ComboSet.Combo.UseE1:Value() then
+		 Control.KeyUp("M")
 		Control.CastSpell(HK_E, myHero.pos)
 		end
 	end
@@ -1589,6 +1641,7 @@ function Irelia:CastE(unit)
 			
 				Epos = QPrediction.CastPosition + (endp - QPrediction.CastPosition): Normalized() * -200
 				SetMovement(false)
+				 Control.KeyUp("M")
 				Control.CastSpell(HK_E, Epos)
 				SetMovement(true)
 

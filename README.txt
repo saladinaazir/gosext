@@ -1,5 +1,6 @@
 edit.rar version 1.21, last updated 12/12/2022
 1.21 changes so far:
+--improved irelia fps, fixed couple of issues
 --added seriesv2 (tryn, jax) tryn has pog ultcalcs logic, and improved manual e cast (double press when E is on cd and you'll galeforce instead)
 --added "targeted" option to test.lua (example settings for zed r here https://i.imgur.com/QPjuK13.png, this just means script will cast R on target if press R, may add better logic to only cast if you aren't moused over a valid target, rn sometimes will ult target even if you are moused on a diff character)
 --improved impulsevlad r calcs (with same aoe out of range logic as killerannie)

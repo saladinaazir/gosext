@@ -234,12 +234,14 @@ end
 local CastQ2 = function(target) 
         local pred = target:GetPrediction(Q.speed, Q.delay)
         if pred == nil then return end 
-        local targetPos = LocalVector(myHero.pos):Extended(pred, Q2.range) 
-        if Q.IsReady() and ValidTarget(target, Q2.range) and GetDistance(myHero.pos, pred) <= Q2.range then 
+		if GetDistance(myHero.pos,pred)>Q2.range then return end
+        local targetPos = LocalVector(myHero.pos):Extended(pred,GetDistance(myHero.pos,pred)) 
+        if Q.IsReady() and ValidTarget(target, Q2.range)then 
         	for i, minion in pairs(GetMinions()) do 
-        		if minion and not minion.dead and ValidTarget(minion, Q.range) then 
-        			local minionPos = LocalVector(myHero.pos):Extended(LocalVector(minion.pos), Q2.range)
+        		if minion and not minion.dead and ValidTarget(minion, Q.range+myHero.boundingRadius) then 
+        local minionPos = LocalVector(myHero.pos):Extended(minion.pos,GetDistance(myHero.pos,pred)) 
         			if GetDistance(targetPos, minionPos) <= Q2.width/2 then 
+						Control.KeyUp("M")
         				LocalCastSpell(HK_Q, minion) 
         			end 
         		end 
@@ -247,9 +249,9 @@ local CastQ2 = function(target)
 		
 		if Q.IsReady() and ValidTarget(target, Q2.range) and GetDistance(myHero.pos, pred) <= Q2.range and GetDistance(target.pos) > 650  then 
         	for i, Enemy in pairs(GetEnemyHeroes()) do
-        		if Enemy and not Enemy.dead and ValidTarget(Enemy, Q.range) then 
-        			local EnemyPos = LocalVector(myHero.pos):Extended(LocalVector(Enemy.pos), Q2.range)
-        			if GetDistance(targetPos, EnemyPos) <= Q2.width/2 then 
+        		if Enemy and not Enemy.dead and ValidTarget(Enemy, Q.range+myHero.boundingRadius) then 
+				local minionPos = LocalVector(myHero.pos):Extended(Enemy.pos,GetDistance(myHero.pos,pred)) 
+        			if GetDistance(targetPos, minionPos) <= Q2.width/2 then 
         				LocalCastSpell(HK_Q, Enemy) 
         			end 
         		end 
@@ -309,7 +311,7 @@ local Tick = function()
         		CastQ2(target) 
         	end 
         elseif Mode() == "Harass" and GetPercentMP(myHero) >= Menu.Harass.Mana:Value() and Menu.Harass.WhiteList[target.charName]:Value() then
-        	if Menu.Harass.Q.Use:Value() and Q.IsReady() and ValidTarget(target, Q.range) then
+        	if Menu.Harass.Q.Use:Value() and Q.IsReady() and ValidTarget(target, Q.range+myHero.boundingRadius) then
         		CastQ(target)
         	end
         	if Menu.Harass.Q.Use2:Value() then 
@@ -319,7 +321,8 @@ local Tick = function()
         		CastW(target, false) 
         	end 
         end
-	
+		
+		Q.delay= 0.4-(0.15/17)*(myHero.levelData.lvl-1)       
         if Menu.AutoHarass.UseExtQ:Value() and GetPercentMP(myHero) >= Menu.AutoHarass.Mana:Value() and Menu.AutoHarass.WhiteList[target.charName]:Value() then
         	CastQ2(target)
         end
@@ -373,15 +376,15 @@ local AfterAttack = function()
 	if Mode() == "Combo" then
 
 		if ComboRotation == 3 then
-	        	if Menu.Combo.W.Use:Value() and W.IsReady() and ValidTarget(target, W.range) then
+	        	if Menu.Combo.W.Use:Value() and W.IsReady() and ValidTarget(target, W.range-50) then
 		                CastW(target, Menu.Combo.W.UseFast:Value())
 	                elseif Menu.Combo.E.Use:Value() and E.IsReady() and ValidTarget(target, E.range*2) then
 		                CastE(target, Menu.Combo.E.Mode:Value(), RangeLogicForE(target)) --Menu.Combo.E.Range:Value()
-	                elseif Menu.Combo.Q.Use:Value() and Q.IsReady() and ValidTarget(target, Q.range) then
+	                elseif Menu.Combo.Q.Use:Value() and Q.IsReady() and ValidTarget(target, q.range+myHero.boundingRadius + target.boundingRadius) then
 		                CastQ(target)
 	                end
 	        end
-			if Menu.Combo.Q.Use:Value() and (ComboRotation == 0  or  ComboRotation == 2) and  (LocalGameCanUseSpell(ComboRotation) ~= READY or (not Menu.Combo.E.Use:Value())) and Q.IsReady() and ValidTarget(target, Q2.range) and Menu.Combo.WhiteList[target.charName]:Value() then
+			if Menu.Combo.Q.Use:Value() and (ComboRotation == 0  or  ComboRotation == 2) and  (LocalGameCanUseSpell(ComboRotation) ~= READY or (not Menu.Combo.E.Use:Value())) and Q.IsReady() and ValidTarget(target, Q.range+myHero.boundingRadius + target.boundingRadius) and Menu.Combo.WhiteList[target.charName]:Value() then
 		        CastQ(target)
 			
 	        elseif Menu.Combo.E.Use:Value() and (ComboRotation == 2 or LocalGameCanUseSpell(ComboRotation) ~= READY) and E.IsReady() and ValidTarget(target, E.range*2) then
@@ -407,7 +410,7 @@ end
 local Load = function()   
         require("MapPositionGOS")
 
-        Menu = MenuElement({type = MENU, name = "PROJECT | Lucian",  id = "Lucian", leftIcon = "http://vignette2.wikia.nocookie.net/leagueoflegends/images/b/b9/Lucian_PROJECT_Trace_3.png"})
+        Menu = MenuElement({type = MENU, name = "PROJECT | Lucian",  id = "Lucian1", leftIcon = "http://vignette2.wikia.nocookie.net/leagueoflegends/images/b/b9/Lucian_PROJECT_Trace_3.png"})
         Menu:MenuElement({name = " ", drop = {"General Features"}})
         Menu:MenuElement({type = MENU, name = "Combo",  id = "Combo"})
         Menu.Combo:MenuElement({type = MENU, name = "[Q] Piercing Light",  id = "Q"})
@@ -420,7 +423,7 @@ local Load = function()
         Menu.Combo.E:MenuElement({name = "Use E In Combo", id = "Use", value = false})
         Menu.Combo.E:MenuElement({name = "E Mode", id = "Mode", value = 2, drop = {"Side", "Mouse", "Target"}})
         ----Menu.Combo.E:MenuElement({name = "E Dash Range", id = "Range", value = 125, min = 100, max = 425, step = 5})
-        Menu.Combo:MenuElement({name = "Combo Rotation Priority",  id = "ComboRotation", value = 3, drop = {"Q", "W", "E", "EW"}})
+        Menu.Combo:MenuElement({name = "Combo Rotation Priority",  id = "ComboRotation", value = 1, drop = {"Q", "W", "E", "EW"}})
 		Menu.Combo:MenuElement({type = MENU, name = "Q White List",  id = "WhiteList"})
         for i, Enemy in pairs(GetEnemyHeroes()) do
         	Menu.Combo.WhiteList:MenuElement({name = Enemy.charName,  id = Enemy.charName, value = true})
@@ -451,11 +454,11 @@ local Load = function()
 
         Menu:MenuElement({type = MENU, name = "Jungle Clear",  id = "JungleClear"})
         Menu.JungleClear:MenuElement({type = MENU, name = "[Q] Piercing Light",  id = "Q"})
-        Menu.JungleClear.Q:MenuElement({name = "Use Q In JungleClear", id = "Use", value = true})
+        Menu.JungleClear.Q:MenuElement({name = "Use Q In JungleClear", id = "Use", value = false})
         Menu.JungleClear:MenuElement({type = MENU, name = "[W] Ardent Blaze",  id = "W"})
-        Menu.JungleClear.W:MenuElement({name = "Use W In JungleClear", id = "Use", value = true})
+        Menu.JungleClear.W:MenuElement({name = "Use W In JungleClear", id = "Use", value = false})
         Menu.JungleClear:MenuElement({type = MENU, name = "[E] Relentless Pursuit",  id = "E"})
-        Menu.JungleClear.E:MenuElement({name = "Use E In JungleClear", id = "Use", value = true})
+        Menu.JungleClear.E:MenuElement({name = "Use E In JungleClear", id = "Use", value = false})
         Menu.JungleClear.E:MenuElement({name = "E Mode", id = "Mode", value = 1, drop = {"Side", "Mouse", "Target"}})
         Menu.JungleClear.E:MenuElement({name = "E Dash Range", id = "Range", value = 125, min = 100, max = 425, step = 5})
         Menu.JungleClear:MenuElement({name = "JungleClear Rotation Priority",  id = "JungleClearRotation", value = 3, drop = {"Q", "W", "E"}})
@@ -464,7 +467,7 @@ local Load = function()
         Menu:MenuElement({name = " ", drop = {"Advanced Features"}})
 
         Menu:MenuElement({type = MENU, name = "Auto Harass",  id = "AutoHarass"})
-        Menu.AutoHarass:MenuElement({name = "Auto Harass With Extended Q", id = "UseExtQ", value = true})
+        Menu.AutoHarass:MenuElement({name = "Auto Harass With Extended Q", id = "UseExtQ", value = false})
         Menu.AutoHarass:MenuElement({type = MENU, name = "White List",  id = "WhiteList"})
         for i, Enemy in pairs(GetEnemyHeroes()) do
         	Menu.AutoHarass.WhiteList:MenuElement({name = Enemy.charName,  id = Enemy.charName, value = true})
@@ -484,15 +487,15 @@ local Load = function()
         Menu.Draw.Q:MenuElement({name = "Draw Q Rectangle",  id = "Range2", value = true})
         Menu.Draw.Q:MenuElement({name = "Q Rectangle Color",  id = "Color2", color = LocalDrawColor(255,255,255,255)})
         Menu.Draw:MenuElement({type = MENU, name = "[W] Ardent Blaze",  id = "W"})
-        Menu.Draw.W:MenuElement({name = "Draw W Range",  id = "Range", value = true})
+        Menu.Draw.W:MenuElement({name = "Draw W Range",  id = "Range", value = false})
         Menu.Draw.W:MenuElement({name = "W Color",  id = "Color", color = LocalDrawColor(255,255,255,255)})
         Menu.Draw.W:MenuElement({name = "W Width",  id = "Width", value = 2, min = 1, max = 10, step = 1})
         Menu.Draw:MenuElement({type = MENU, name = "[E] Relentless Pursuit",  id = "E"})
-        Menu.Draw.E:MenuElement({name = "Draw E Range",  id = "Range", value = true})
+        Menu.Draw.E:MenuElement({name = "Draw E Range",  id = "Range", value = false})
         Menu.Draw.E:MenuElement({name = "E Color",  id = "Color", color = LocalDrawColor(255,255,255,255)})
         Menu.Draw.E:MenuElement({name = "E Width",  id = "Width", value = 2, min = 1, max = 10, step = 1})
         Menu.Draw:MenuElement({type = MENU, name = "[R] The Culling",  id = "R"})
-        Menu.Draw.R:MenuElement({name = "Draw R Range",  id = "Range", value = true})
+        Menu.Draw.R:MenuElement({name = "Draw R Range",  id = "Range", value = false})
         Menu.Draw.R:MenuElement({name = "R Color",  id = "Color", color = LocalDrawColor(255,255,255,255)})
         Menu.Draw.R:MenuElement({name = "R Width",  id = "Width", value = 2, min = 1, max = 10, step = 1})
         Menu.Draw:MenuElement({name = "Draw Current Target", id = "CurTarget", value = true})
@@ -501,10 +504,10 @@ local Load = function()
         Menu:MenuElement({name = " ", drop = {"Script Info"}})
         Menu:MenuElement({name = "Script Version", drop = {"1.1"}})
         Menu:MenuElement({name = "League Version", drop = {"7.16"}})
-        Menu:MenuElement({name = "Author", drop = {"Shulepin"}})
+        Menu:MenuElement({name = "Author", drop = {"Shulepin+isbjorn"}})
 
-        Q    = { range = 650                                                                                                }         
-        Q2   = { range = 900 , delay = 0.35, speed = math.huge, width = 25, collision = false, aoe = false, type = "linear" }         
+        Q    = { range = 500 , delay = 0.35, speed = math.huge, width = 100, collision = false, aoe = false, type = "linear" }  
+        Q2   = { range = 1000 , delay = 0.35, speed = math.huge, width = 100, collision = false, aoe = false, type = "linear" }        
         W    = { range = 1000, delay = 0.30, speed = 1600     , width = 80, collision = true , aoe = true , type = "linear" }         
         E    = { range = 425                                                                                                }         
         R    = { range = 1200, delay = 0.10, speed = 2500     , width = 110                                                 }       

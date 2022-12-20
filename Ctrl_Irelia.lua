@@ -1057,7 +1057,7 @@ function Irelia:Tick()
 		for i = 1, Game.MissileCount() do
 	local missile = Game.Missile(i)
 	if missile and (missile.missileData.name == "IreliaEMissile") then
-
+		--dm me on discord (i'm icebear/isbj orn on there) and i'll send you a cookie
 		endp=Vector(missile.missileData.endPos.x,missile.missileData.endPos.y,missile.missileData.endPos.z)
 	end
 	end

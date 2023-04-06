@@ -109,6 +109,9 @@ local function IsValid(unit)
 end
 
 local function IsValidCrap(unit)
+	print(unit.isTargetable==true)
+	print(unit.dead==true)
+	print("-----------------")
     if (unit and unit.isTargetable and unit.dead == false) then
         return true;
     end
@@ -914,9 +917,9 @@ local function cantkill(unit,kill,ss,aa)
 		end
 		
 		 --uncomment for cc stuff
-		if  buff.name:lower():find("morganae") and ss and not aa and buff.count==1 then
-			return true
-		end
+	--	if  buff.name:lower():find("morganae") and ss and not aa and buff.count==1 then
+	--		return true
+	--	end
 		
 		
 		if (buff.name:lower():find("fioraw") or buff.name:lower():find("pantheone")) and buff.count==1 then
@@ -1044,7 +1047,16 @@ end
 
 
 
-
+local function IsValid2(unit)
+    return  unit 
+            and unit.valid 
+            and unit.isTargetable 
+            and unit.alive 
+            and unit.visible 
+            and unit.networkID 
+            and unit.health > 0
+            and not unit.dead
+end
 
 function Irelia:Tick()
 	--print(GetMode())
@@ -1074,7 +1086,9 @@ end
 			heroes = true
 		end
 	end	
-	
+	if math.floor(Game.Timer())%20==0 then
+		qminions={}
+    end
 	
  	
 if MyHeroNotReady() then return end
@@ -1130,8 +1144,9 @@ local Mode = GetMode()
 		if myHero.pos:DistanceTo(target.pos) <= 775 and myHero:GetSpellData(_E).toggleState == 0 and not ISMarked(1000) then
 			local QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_CIRCLE, Delay = 0.5, Radius = 75, Range = 800, Speed = math.huge,Collision = true, CollisionTypes = {COLLISION_YASUOWALL}})
 				  QPrediction:GetPrediction(target, myHero)
-			if QPrediction:CanHit(1)and not (myHero.activeSpell and myHero.activeSpell.valid and myHero.activeSpell.name == "IreliaR") and not cantkill(target,false,true,false)  then
+			if QPrediction:CanHit(1)and not (myHero.activeSpell and myHero.activeSpell.valid and myHero.activeSpell.name == "IreliaR") and not cantkill(target,false,true,false) and not (myHero.pathing and myHero.pathing.isDashing) then
 			Epos = QPrediction.CastPosition + (endp - QPrediction.CastPosition): Normalized() * -150
+			if not Epos:To2D().onScreen then return end
 				SetMovement(false)
 				Control.CastSpell(HK_E, Epos)
 				SetMovement(true)
@@ -1217,6 +1232,7 @@ local Mode = GetMode()
 				  QPrediction:GetPrediction(target, myHero)
 			if QPrediction:CanHit(1) and not ISMarked(1000) and not (myHero.activeSpell and myHero.activeSpell.valid and myHero.activeSpell.name == "IreliaR") and not cantkill(target,false,true,false) then
 				Epos = QPrediction.CastPosition + (endp - QPrediction.CastPosition): Normalized() * -150
+				if not Epos:To2D().onScreen then return end
 					SetMovement(false)
 					 Control.KeyUp("M")
 					Control.CastSpell(HK_E, Epos)
@@ -1352,24 +1368,44 @@ local function DrawKillableMinion2()
         end
     end
 end
-
+lasteflee=0
 function Irelia:Flee()
 		mode=GetMode()
 	if self.Menu.MiscSet.Flee.Q:Value() and Ready(_Q) then
 		if KillMinion and GetDistance(KillMinion.pos, mousePos) < (300) then
+					local target1 = GetTarget(1200)	
+					if target1 and Ready(_E) and myHero:GetSpellData(_E).name ~= "IreliaE2" and mode=="Combo"  and GetDistance(KillMinion.pos, target1.pos)<700 and lasteflee+0.3<Game.Timer()  then	
+						SetMovement(false)
+						Control.CastSpell(HK_E,myHero.pos)
+						SetMovement(true)
+						lasteflee=Game.Timer()
+						print("test1")						
+						return
+					end
+					
 		             Control.KeyUp("M")
-					Control.CastSpell(HK_Q,KillMinion)	 
+					Control.CastSpell(HK_Q,KillMinion)						
 					KillMinion = nil
+					return
 		else
 			GetKillableMinion()		
 		if KillMinion and GetDistance(KillMinion.pos, mousePos) < ((400 and not mode=="Combo") or 500) then
-				
-				     Control.KeyUp("M")
+					local target1 = GetTarget(1200)	
+					if target1 and Ready(_E) and myHero:GetSpellData(_E).name ~= "IreliaE2" and mode=="Combo" and GetDistance(KillMinion.pos, target1.pos)<700 and lasteflee+0.3<Game.Timer() then	
+						SetMovement(false)
+						Control.CastSpell(HK_E,myHero.pos)
+						SetMovement(true)
+						lasteflee=Game.Timer()
+						print("test2")
+						return
+					end
+				    Control.KeyUp("M")
 					Control.CastSpell(HK_Q,KillMinion)	 
+					
 				--	CastSpell(HK_Q, KillMinion, LastQ)	 
 				--	LastQ =((GetDistance(myHero.pos, KillMinion.pos)/(1500+myHero.ms)*1000)+50)
 					KillMinion = nil
-
+					return
 		
 		-- else
 				-- for i, enemy in ipairs(GetEnemyHeroes()) do
@@ -1453,7 +1489,7 @@ if target == {} then end
 		if self.Menu.ComboSet.Combo.LogicQ:Value() then 				 
 			if myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) then
 				local QDmg = HeroQdmg(target) + CalcExtraDmg(target)
-				if (QDmg >= target.health and CheckHPPred(target) >= 1) and IsValid(target) and not cantkill(target,true,true,true) then
+				if (QDmg >= target.health) and IsValid(target) and not cantkill(target,true,true,true) then --and CheckHPPred(target) >= 1)
 					Control.CastSpell(HK_Q, target)		
 				end
 			end			
@@ -1469,7 +1505,7 @@ if target == {} then end
 				
 			if myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) then
 				local QDmg = HeroQdmg(target) + CalcExtraDmg(target)
-				if (QDmg >= target.health and CheckHPPred(target) >= 1) and IsValid(target) and not cantkill(target,true,true,true) then
+				if (QDmg >= target.health) and IsValid(target) and not cantkill(target,true,true,true) then --and CheckHPPred(target) >= 1)
 					Control.CastSpell(HK_Q, target)		
 				end
 			end
@@ -1728,9 +1764,9 @@ function Irelia:CastE(unit)
 		end
 	end
     if myHero:GetSpellData(_E).name == "IreliaE2" then
-			local QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_CIRCLE, Delay = 0.5, Radius = 70, Range = 800, Speed = math.huge, Collision = true, CollisionTypes = {COLLISION_YASUOWALL}})
+			local QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_CIRCLE, Delay = 0.55, Radius = 20, Range = 800, Speed = math.huge, Collision =false })
 				  QPrediction:GetPrediction(unit, myHero)
-			if QPrediction:CanHit(1)and not cantkill(unit,false,true,false) then
+			if QPrediction:CanHit(1)and not cantkill(unit,false,true,false) and not (myHero.pathing and myHero.pathing.isDashing) then
 	
 			
 				Epos = QPrediction.CastPosition + (endp - QPrediction.CastPosition): Normalized() * -200
@@ -1760,7 +1796,7 @@ function Irelia:CastR(unit)
 end	
 
 function Irelia:CastGGPred(unit)
-	local RPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_LINE, Delay = 0.4 + ping, Radius = 160, Range = 950, Speed = 2000, Collision = true, CollisionTypes = {COLLISION_YASUOWALL}})
+	local RPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_LINE, Delay = 0.4, Radius = 160, Range = 950, Speed = 2000, Collision = true, CollisionTypes = {COLLISION_YASUOWALL}})
 		  RPrediction:GetPrediction(unit, myHero)
 	if RPrediction:CanHit(self.Menu.MiscSet.Pred.PredR:Value()+1) then
 		Control.CastSpell(HK_R, RPrediction.CastPosition)
@@ -1831,7 +1867,7 @@ function Irelia:Draw()
 	end
 	if self.Menu.MiscSet.Drawing.DrawKM:Value() and Ready(_Q) then
 	
-		if (lastdkm+.65)<Game.Timer() then
+		if (lastdkm+.5)<Game.Timer() then
 		DrawKillableMinion()
 		end
 		

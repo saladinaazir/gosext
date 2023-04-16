@@ -1,3 +1,4 @@
+require "GGPrediction"
 local heroes = false
 local checkCount = 0
 local menu = 1
@@ -237,16 +238,6 @@ Callback.Add("Tick", function()
 	else
 		if not IsLoaded then
 			LoadScript()
-			DelayAction(function()
-				if not Menu.Pred then return end
-				if Menu.Pred.Change:Value() == 1 then
-					require('GamsteronPrediction')
-				elseif Menu.Pred.Change:Value() == 2 then
-					require('PremiumPrediction')
-				else
-					require('GGPrediction')
-				end
-			end, 1)
 			IsLoaded = true
 		end
 	end
@@ -322,7 +313,7 @@ function LoadScript()
 		Menu.clear:MenuElement({id = "Q", name = "Use Q", value = true})
 		Menu.clear:MenuElement({id = "W", name = "Use W", value = true})
 		Menu.clear:MenuElement({id = "Count", name = "Min Minions to hit W", value = 3, min = 1, max = 5, step = 1})
-		Menu.clear:MenuElement({id = "E", name = "Auto E Toggle Key", key = 84, toggle = true, value = true})
+		Menu.clear:MenuElement({id = "E", name = "E only/E+AA key toggle (used in combo mode as well)", key = 84, toggle = true, value = true})
 		Menu.clear:MenuElement({id = "E2", name = "Auto E off in Combo Mode", value = true})
 
 		--JungleClear
@@ -339,8 +330,6 @@ function LoadScript()
 
 		--Prediction
 		Menu:MenuElement({type = MENU, id = "Pred", name = "Prediction"})
-		Menu.Pred:MenuElement({name = " ", drop = {"After change Pred.Typ reload 2x F6"}})
-		Menu.Pred:MenuElement({id = "Change", name = "Change Prediction Typ", value = 3, drop = {"Gamsteron Prediction", "Premium Prediction", "GGPrediction"}})
 		Menu.Pred:MenuElement({id = "PredQ", name = "Hitchance[Q]", value = 1, drop = {"Normal", "High", "Immobile"}})
 
 		--RSetting

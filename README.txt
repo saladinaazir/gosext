@@ -1,3 +1,6 @@
+THIS STUFF IS OUTDATED, ASK FOR NEW STUFF ON DISCORD
+
+
 edit.rar version 1.21, last updated 12/12/2022
 1.21 changes so far:
 --improved irelia fps, fixed couple of issues

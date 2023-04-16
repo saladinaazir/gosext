@@ -191,30 +191,26 @@ function Aphelios:Tick()
 
 	
 	candotech=false
-	isamarkedtarget=false
+	highestprio2=0
+	bestmarkedtarget=nil
 	for i, enemy in pairs(GetEnemyHeroes()) do
 		if enemy and enemy.distance<_G.SDK.Data:GetAutoAttackRange(myHero) then
 			candotech=true
-		elseif enemy.distance<1800 and _G.SDK.BuffManager:HasBuff(enemy, "aphelioscalibrumbonusrangedebuff") then
-			isamarkedtarget=true			
+		elseif enemy.distance<1800 and  _G.SDK.TargetSelector:GetPriority(enemy)>highestprio2 and enemy.toScreen.onScreen and Mode() == "Combo" and lastcalibrumattack+0.7<Game.Timer() and _G.SDK.BuffManager:HasBuff(enemy, "aphelioscalibrumbonusrangedebuff") and not _G.SDK.BuffManager:HasBuff(myHero, "ApheliosSeverumQ") then	
+			bestmarkedtarget=enemy
+			highestprio2=_G.SDK.TargetSelector:GetPriority(enemy)
 		end
 	end
-	if candotech==false and isamarkedtarget==true then
-		for i, enemy in pairs(GetEnemyHeroes()) do
-			--print(myHero.range)
-			local extraRange = enemy.boundingRadius
-			if enemy.distance<1800 and enemy.toScreen.onScreen and Mode() == "Combo" and lastcalibrumattack+0.7<Game.Timer() and _G.SDK.BuffManager:HasBuff(enemy, "aphelioscalibrumbonusrangedebuff") and not _G.SDK.BuffManager:HasBuff(myHero, "ApheliosSeverumQ") then
-				print("proccing calibrum")
-				_G.SDK.Orbwalker:__OnAutoAttackReset()
-				_G.SDK.Orbwalker:Attack(enemy)
-				lastcalibrumattack=Game.Timer()
-				return
-			end		
-		end
+	if candotech==false and bestmarkedtarget then
+		print("proccing calibrum")
+		_G.SDK.Orbwalker:__OnAutoAttackReset()
+		_G.SDK.Orbwalker:Attack(bestmarkedtarget)
+		lastcalibrumattack=Game.Timer()
+		return
 	end
 	
 	if myHero.activeSpell.name=="ApheliosCrescendumAttack"  then
-		local target = GetTarget(AArange1)
+		local target = _G.SDK.Orbwalker:GetTarget((_G.SDK.Data:GetAutoAttackRange(myHero)))
 		if target and Game.Timer()>lastcrcheck then
 			lastcrcheck=myHero.activeSpell.castEndTime
 			nextguessedtime=(myHero.activeSpell.castEndTime+(target.distance/5000)+(target.distance/(600+((myHero.attackSpeed-1)*750))))+self.Menu.ComboMode.CrescendumSlider:Value()
@@ -381,19 +377,22 @@ function Aphelios:OnPostAttackTick(args)
 		Casted = 0
 		--PrintChat("Attacked")
 	end
+	local besttarget=nil
+	local highestprio3=0
 	for i, enemy in pairs(GetEnemyHeroes()) do
 			--print(myHero.range)
 			local extraRange = enemy.boundingRadius
-			if enemy~=self.AttackTarget and enemy.distance<1800 and enemy.toScreen.onScreen and Mode() == "Combo" and  MainHand ~= "White" and _G.SDK.BuffManager:HasBuff(enemy, "aphelioscalibrumbonusrangedebuff") and not _G.SDK.BuffManager:HasBuff(myHero, "ApheliosSeverumQ") then
-				print("doingtech")
-				_G.SDK.Orbwalker.ForceTarget = enemy
-				if MainHand~="White" then
-					_G.SDK.Orbwalker:__OnAutoAttackReset()
-				end
-	--			_G.SDK.Orbwalker:Attack(enemy)
-				lastcalibrumattack=Game.Timer()
-				return
+			if enemy~=self.AttackTarget and enemy.distance<1800 and _G.SDK.TargetSelector:GetPriority(enemy)> highestprio3 and enemy.toScreen.onScreen and Mode() == "Combo" and  MainHand ~= "White" and _G.SDK.BuffManager:HasBuff(enemy, "aphelioscalibrumbonusrangedebuff") and not _G.SDK.BuffManager:HasBuff(myHero, "ApheliosSeverumQ") then
+				besttarget=enemy
+				highestprio3=_G.SDK.TargetSelector:GetPriority(enemy)
 			end		
+	end
+	if besttarget~=nil then
+		print("doingtech")
+		_G.SDK.Orbwalker:__OnAutoAttackReset()
+		_G.SDK.Orbwalker.ForceTarget = besttarget
+		lastcalibrumattack=Game.Timer()
+		return
 	end
 	_G.SDK.Orbwalker.ForceTarget=nil
 	if target then
@@ -654,7 +653,7 @@ function Aphelios:Combo()
 				end
 				if OffHand == "AOE" then
 					if IsReady(_Q) and CanRoot and shouldroot then
-				--		Control.CastSpell(HK_Q)
+						Control.CastSpell(HK_Q)
 					end
 					if IsReady(_E) then
 

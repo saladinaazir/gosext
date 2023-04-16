@@ -7,8 +7,8 @@ require "MapPositionGOS"
 require "2DGeometry"
 require "GGPrediction"
 require "PremiumPrediction"
-
-scriptVersion = 1.21
+require "KillerAIO\\KillerLib"
+scriptVersion = 1.29
 
 if not _G.SDK then
     print("GGOrbwalker is not enabled. Killer Annie will exit.")
@@ -455,7 +455,7 @@ local function GetEnemyCountAtPos(checkrange, range, pos)
     return count
 end
 
-local function GetEnemiesAtPos(checkrange, range, pos,target)
+function GetEnemiesAtPos(checkrange, range, pos, target)
     local enemies = _G.SDK.ObjectManager:GetEnemyHeroes(checkrange)
 	local results = {}
     for i = 1, #enemies do 
@@ -464,14 +464,11 @@ local function GetEnemiesAtPos(checkrange, range, pos,target)
         if GetDistanceSqr(pos, enemy.pos) < Range and IsValid(enemy) and enemy ~= target then
 			table.insert(results, enemy)
         end
-		
-		if target then
-			table.insert(results, target)
-		end
     end
+	
+	table.insert(results, target)
     return results
 end
-
 local function GetMinionCount(checkrange, range, pos)
     local minions = _G.SDK.ObjectManager:GetEnemyMinions(checkrange)
     local count = 0
@@ -525,31 +522,46 @@ local function AverageClusterPosition(targets)
 	return point
 end
 
-local function CalculateBoundingBoxAvg(targets, predDelay)
+local function CalculateBoundingBoxAvg2(targets, predDelay)
 	local highestX, lowestX, highestZ, lowestZ = 0, math.huge, 0, math.huge
 	local avg = {x = 0, y = 0, z = 0}
 	for k, v in pairs(targets) do
-		local vPos = v.pos
-		if(predDelay > 0) then
-			vPos = v:GetPrediction(math.huge, predDelay)
-		end
+		vPos = v:GetPrediction(math.huge, predDelay)
+
 		
+		-- if(vPos.x >= highestX) then
+			-- highestX = v.pos.x
+		-- end
+		
+		-- if(vPos.z >= highestZ) then
+			-- highestZ = v.pos.z
+		-- end
+		
+		-- if(vPos.x < lowestX) then
+			-- lowestX = v.pos.x
+		-- end
+		
+		-- if(vPos.z < lowestZ) then
+			-- lowestZ = v.pos.z
+		-- end
+	-- end
 		if(vPos.x >= highestX) then
-			highestX = v.pos.x
+			highestX = vPos.x
+
 		end
 		
 		if(vPos.z >= highestZ) then
-			highestZ = v.pos.z
+			highestZ =  vPos.z
 		end
 		
 		if(vPos.x < lowestX) then
-			lowestX = v.pos.x
+			lowestX = vPos.x
 		end
 		
 		if(vPos.z < lowestZ) then
-			lowestZ = v.pos.z
+			lowestZ =  vPos.z
 		end
-	end
+	end	
 	
 	local vec1 = Vector(highestX, myHero.pos.y, highestZ)
 	local vec2 = Vector(highestX, myHero.pos.y, lowestZ)
@@ -557,7 +569,6 @@ local function CalculateBoundingBoxAvg(targets, predDelay)
 	local vec4 = Vector(lowestX, myHero.pos.y, lowestZ)
 	
 	avg = (vec1 + vec2 + vec3 + vec4) /4
-	
 	return avg
 end
 
@@ -666,16 +677,32 @@ function Annie:__init()
 	self:LoadMenu()
 	Callback.Add("Tick", function() self:Tick() end)
 	Callback.Add("Draw", function() self:Draw() end)
-	
+	_G.SDK.Orbwalker:OnPreAttack(function(...) OnPreAttack(...) end)
 	--Load AutoE Champ Spell Toggles
-	DelayAction(function() 
-		for _, enemy in ipairs(Enemies) do
-			self.Menu.AutoE.Ignore[enemy.charName]:MenuElement({id = enemy:GetSpellData(_Q).name, name = "Q", value = false})
-			self.Menu.AutoE.Ignore[enemy.charName]:MenuElement({id = enemy:GetSpellData(_W).name, name = "W", value = false})
-			self.Menu.AutoE.Ignore[enemy.charName]:MenuElement({id = enemy:GetSpellData(_E).name, name = "E", value = false})
-			self.Menu.AutoE.Ignore[enemy.charName]:MenuElement({id = enemy:GetSpellData(_R).name, name = "R", value = false})
+	_G.SDK.ObjectManager:OnEnemyHeroLoad(function(args)
+		champName = args.charName
+		enemy = args.unit
+		self.Menu.AutoE.Ignore[champName]:MenuElement({id = enemy:GetSpellData(_Q).name, name = "Q", value = false})
+		self.Menu.AutoE.Ignore[champName]:MenuElement({id = enemy:GetSpellData(_W).name, name = "W", value = false})
+		self.Menu.AutoE.Ignore[champName]:MenuElement({id = enemy:GetSpellData(_E).name, name = "E", value = false})
+		self.Menu.AutoE.Ignore[champName]:MenuElement({id = enemy:GetSpellData(_R).name, name = "R", value = false})
+	end)
+
+end
+
+function OnPreAttack(args)
+args.Process = true
+	local mode = GetMode()
+	if (mode == "LastHit" or mode == "LaneClear") and Ready(_Q) and Annie:HasStunBuff()==false then
+		local hp = _G.SDK.HealthPrediction:GetPrediction(args.Target, 0.25 + (args.Target.distance/1400))	
+		if hp+15<QdmgCreep() and hp>0  then
+			args.Process = false
+			Control.CastSpell(HK_Q,args.Target)
+			print("q instead")
+			return
 		end
-	end, 0.5)
+	end
+
 end
 
 function Annie:LoadMenu()                     	
@@ -769,19 +796,36 @@ function Annie:LoadMenu()
 	self.Menu.Drawings:MenuElement({id = "DrawQW", name = "Draw Q & W Range", value = true})
 	self.Menu.Drawings:MenuElement({id = "DrawKillable", name = "Draw Killable Enemies", value = true})
 	self.Menu.Drawings:MenuElement({id = "DrawNinjaComboStatus", name = "Draw Ninja Combo Status", value = true})
-	self.Menu.Drawings:MenuElement({id = "DrawUltClusters", name = "Draw Ult Clusters", value = false})
-	self.Menu.Drawings:MenuElement({id = "DrawChampTracker", name = "Draw Proximity Champion Tracker", value = false})
+	self.Menu.Drawings:MenuElement({id = "DamageHPBar", name = "Damage HP Bar", type = MENU})
+	self.Menu.Drawings:MenuElement({id = "Debug", name = "Debug Drawings", type = MENU})
+	
+	self.Menu.Drawings.DamageHPBar:MenuElement({id = "DrawDamageHPBar", name = "Draw Full Combo Damage", value = true})
+	self.Menu.Drawings.DamageHPBar:MenuElement({id = "YOffset", name = "Y Offset", value = 60, min = -100, max = 100, step = 5})
+	--debug
+	self.Menu.Drawings.Debug:MenuElement({id = "DrawUltClusters", name = "Draw Ult Clusters", value = false})
 	
 	self.Menu:MenuElement({id = "AutoLevel", name = "Auto Level Skills (Q - W - E)", value = false})
+	self.Menu:MenuElement({id = "DisableInFountain", name = "Disable Orbwalker while in Fountain", value = true})
 	
 end
 
 function Annie:Tick()
 	if(MyHeroNotReady()) then return end
+		if(self.Menu.DisableInFountain:Value()) then
+		if(IsInFountain() or not myHero.alive) then
+			_G.SDK.Orbwalker:SetMovement(false)
+		else
+			_G.SDK.Orbwalker:SetMovement(true)
+		end
+	else
+		_G.SDK.Orbwalker:SetMovement(true)
+	end
 	
 	if(self.Menu.Combo.NinjaCombo.Key:Value()) or self.Menu.Combo.NinjaCombo.Key2:Value() then
 		self:NinjaCombo()
 	end
+	
+	if(MyHeroNotReady()) then return end
 	
 	self:AABlock()
 	self:QStatusUpdate()
@@ -877,7 +921,7 @@ function Annie:DebugCluster()
 			searchrange = R.Range + R.Radius +400 - RBuffer
 		end
 		local nearbyEnemies = GetEnemiesAtPos(searchrange, R.Radius*2 -RBuffer, target.pos, target)
-		local bestPos, count = self:CalculateBestCirclePosition(nearbyEnemies, R.Radius - RBuffer, true)
+		local bestPos, count = self:CalculateBestCirclePosition2(nearbyEnemies, R.Radius - RBuffer, true)
 		if(myHero.pos:DistanceTo(bestPos) < R.Range + RBuffer + 400 + R.Radius + 1000) then
 			DrawCircle(bestPos, R.Radius -RBuffer, 1, DrawColor(85, 255, 255, 255)) --(Alpha, R, G, B)
 		end
@@ -885,9 +929,10 @@ function Annie:DebugCluster()
 	end
 end
 
-function Annie:CalculateBestCirclePosition(targets, radius, edgeDetect)
+function Annie:CalculateBestCirclePosition2(targets, radius, edgeDetect)
 
-	local avgCastPos = CalculateBoundingBoxAvg(targets, 0.25)
+	local avgCastPos = CalculateBoundingBoxAvg2(targets, 0.25+0.06)
+
 	local newCluster = {}
 	local distantEnemies = {}
 
@@ -915,7 +960,7 @@ function Annie:CalculateBestCirclePosition(targets, radius, edgeDetect)
 		
 		--Recursion, we are discarding the furthest target and recalculating the best position
 		if(#newCluster ~= #targets) then
-			return self:CalculateBestCirclePosition(newCluster, radius)
+			return self:CalculateBestCirclePosition2(newCluster, radius)
 		end
 	end
 	
@@ -992,6 +1037,22 @@ function Annie:GetPassiveStacks()
 	return GetBuffData(myHero, AnniePassiveStacksBuff).count
 end
 
+function Annie:GetRawAbilityDamage(spell)
+	if(spell == "Q") then
+		 return ({80, 115, 150, 185, 220})[myHero:GetSpellData(_Q).level] + (0.8 * myHero.ap)
+	end
+	
+	if(spell == "W") then
+		return ({70, 115, 160, 205, 250})[myHero:GetSpellData(_W).level] + (0.85 * myHero.ap)
+	end
+	
+	if(spell == "R") then
+		return ({150, 275, 400})[myHero:GetSpellData(_R).level] + (0.75 * myHero.ap)
+	end
+	
+	return 0
+end
+
 function Annie:HasStunBuff()
 	return HasBuff(myHero, AnniePassivePrimedBuff)
 end
@@ -1018,7 +1079,7 @@ function Annie:Combo()
 	local ignoreChamp = false
 	if(self.Menu.Combo.RSettings.DontSoloUlt[target.charName]:Value()) then
 		local nearbyEnemies = GetEnemiesAtPos(R.Range + R.Radius, R.Radius*2, target.pos,target)
-		local bestPos, count = self:CalculateBestCirclePosition(nearbyEnemies, R.Radius)
+		local bestPos, count = self:CalculateBestCirclePosition2(nearbyEnemies, R.Radius)
 		if(count == 1) then
 			ignoreChamp = true
 		end
@@ -1030,7 +1091,7 @@ function Annie:Combo()
 		
 		if(target and IsValid(target) and target ~= nil) then
 			local nearbyEnemies = GetEnemiesAtPos(R.Range + R.Radius -RBuffer, R.Radius*2 -RBuffer, target.pos, target)
-			local bestPos, count, targets = self:CalculateBestCirclePosition(nearbyEnemies, R.Radius-RBuffer, true)
+			local bestPos, count, targets = self:CalculateBestCirclePosition2(nearbyEnemies, R.Radius-RBuffer, true)
 			
 			--Cluster AoE kill check
 			if(self.Menu.Combo.RSettings.RAoEKillCheck:Value()) then
@@ -1093,8 +1154,8 @@ function Annie:Combo()
 			return
 		end
 		
-		if(self.Menu.Combo.UseW:Value() and Ready(_W) and myHero.pos:DistanceTo(target.pos) < W.Range) then
-			Control.CastSpell(HK_W, target)
+		if self.Menu.Combo.UseW:Value() and Ready(_W) and myHero.pos:DistanceTo(target.pos) < W.Range and myHero.pos:DistanceTo(target:GetPrediction(math.huge,0.25)) < W.Range then
+			Control.CastSpell(HK_W, target:GetPrediction(math.huge,0.25))
 			return
 		end
 		
@@ -1109,7 +1170,7 @@ function Annie:Combo()
 		
 		local RBuffer = self.Menu.Combo.RSettings.RBuffer:Value()
 		local nearbyEnemies = GetEnemiesAtPos(R.Range + R.Radius -RBuffer, R.Radius*2 -RBuffer, target.pos, target)
-		local bestPos, count = self:CalculateBestCirclePosition(nearbyEnemies, R.Radius, true)
+		local bestPos, count = self:CalculateBestCirclePosition2(nearbyEnemies, R.Radius, true)
 		
 		if(self:GetPassiveStacks() == 3) then
 			if(myHero.pos:DistanceTo(bestPos) < R.Range) then
@@ -1183,33 +1244,54 @@ function Annie:Harass()
 		
 		if(Ready(_W) and self.Menu.Harass.UseW:Value() and (myHero.mana / myHero.maxMana) >= (self.Menu.Harass.WMana:Value() / 100)) then
 			if(IsImmobile(target) >= 1.0) then
-				Control.CastSpell(HK_W, target)
+				Control.CastSpell(HK_W, target:GetPrediction(math.huge,0.25))
 			end
 		end	
 	end
 end
+function QdmgCreep()
+	local level = myHero:GetSpellData(_Q).level
+	local base = (45 + 35 * level) + (0.8 * myHero.ap)
+	return base
+end
+ethisminion=nil
+ethisminiontime=0
 
 function Annie:LastHit()
+	_G.SDK.Orbwalker.ForceTarget=nil
+	if ethisminion and _G.SDK.Attack:IsActive()==false and Ready(_Q) then
+		if(ethisminion and IsValid(ethisminion))  then
+			if ethisminiontime+0.6>Game.Timer() and ethisminiontime+myHero.attackData.windUpTime<Game.Timer() then
+				Control.CastSpell(HK_Q, ethisminion)
+				ethisminion=nil
+				print("E minion"..Game.Timer())
+			elseif ethisminiontime+0.6<Game.Timer() then
+				ethisminion=nil
+			end
+		else 
+			ethisminion=nil
+		end
+	end
 
 	local minions = _G.SDK.ObjectManager:GetEnemyMinions(Q.Range) -- Q range is the same as W range
 	local canonMinion = GetCanonMinion(minions)
 	
 	if not (myHero.valid or IsValid(myHero)) or myHero.isChanneling then return end
-	
+	local qdmg=QdmgCreep()
+	local QDam = qdmg
 	if(Ready(_Q) and self.Menu.LastHit.UseQ:Value()) then
-		
-		--Passive mode check
-		local shouldLastHit = true
-		
+		 shouldLastHit = true
+		 if(self:HasStunBuff()) then
+			shouldLastHit = false
+		end
 		if(self.Menu.LastHit.HoldQ:Value()) then
-		
-			if(self:HasStunBuff()) then
-				shouldLastHit = false
-			end
+
+
 	
 			--If we are under tower, we can use our abilities
 			if(self.Menu.LastHit.TowerFarm:Value()) then
-				if(IsUnderFriendlyTurret(myHero)) then shouldLastHit = true end
+				if(IsUnderFriendlyTurret(myHero)) then shouldLastHit = true
+				end
 			
 		--	if(GetEnemyCount(2000, myHero) == 0) then shouldLastHit= true end
 			end
@@ -1217,7 +1299,7 @@ function Annie:LastHit()
 		
 		--Prioritize the canon minion if its low
 		if(canonMinion ~= nil) and IsValid(canonMinion) then
-			local QDam = getdmg("Q", canonMinion, myHero)
+			local QDam = qdmg
 			local hp = _G.SDK.HealthPrediction:GetPrediction(canonMinion, Q.Delay+(myHero.pos:DistanceTo(canonMinion.pos)/1400))
 			
 			if ((hp > 0) and (hp + (canonMinion.health*0.05) < QDam) or (canonMinion.health + 5 < QDam)) and shouldLastHit then
@@ -1228,14 +1310,32 @@ function Annie:LastHit()
 		for i = 1, #minions do
 			local minion = minions[i]
 			if IsValid(minion) then
-				local QDam = getdmg("Q", minion, myHero)
 				local hp = _G.SDK.HealthPrediction:GetPrediction(minion, Q.Delay+(myHero.pos:DistanceTo(minion.pos)/1400))
 				
-				if ((hp > 0) and (hp + (minion.health*0.05) < QDam) or (minion.health + 5 < QDam)) and shouldLastHit then
-					Control.CastSpell(HK_Q, minion)
-				end
+				if ((hp > 0) and (hp < QDam) or (minion.health + 5 < QDam)) and shouldLastHit then
+					Control.CastSpell(HK_Q, minion)				
+					return
+				end			
 			end
 		end
+			for i = 1, #minions do
+				local minion = minions[i]
+				if (minion and IsValid(minion)) and ethisminion==nil then
+					if minion.distance <= Q.Range then	
+						local hp = _G.SDK.HealthPrediction:GetPrediction(minion,myHero.attackData.windUpTime+ (minion.distance/1200)+0.05)	
+	
+						if myHero.attackData.state == STATE_ATTACK and (hp > 0) and  (hp- qdmg - myHero.totalDamage <= 0) and shouldLastHit  then
+							_G.SDK.Orbwalker.ForceTarget = minion
+							_G.SDK.Orbwalker:Attack(minion)
+							ethisminiontime=Game.Timer()
+							ethisminion=minion
+
+							print("setup minion"..Game.Timer())
+							return
+						end
+					end
+				end
+			end
 	end
 	
 	if(Ready(_Q)==false and Ready(_W) and self.Menu.LastHit.UseW:Value()) then
@@ -1261,7 +1361,20 @@ function Annie:Clear()
 	if(self.Menu.Clear.UseQ:Value() == false and self.Menu.Clear.UseW:Value() == false) then return end
 	if(not Ready(_Q) and not Ready(_W)) then return end	
 	if(myHero.isChanneling) then return end
-	
+		_G.SDK.Orbwalker.ForceTarget=nil
+	if ethisminion and _G.SDK.Attack:IsActive()==false and Ready(_Q) then
+		if(ethisminion and IsValid(ethisminion))  then
+			if ethisminiontime+1>Game.Timer() and ethisminiontime+myHero.attackData.windUpTime<Game.Timer() then
+				Control.CastSpell(HK_Q, ethisminion)
+				ethisminion=nil
+				print("E minion"..Game.Timer())
+			elseif ethisminiontime+1<Game.Timer() then
+				ethisminion=nil
+			end
+		else 
+			ethisminion=nil
+		end
+	end
 	local SMART_CLEAR = 1
 	local SPAM_CLEAR = 2
 	local clearMode = self.Menu.Clear.ClearType:Value()
@@ -1269,119 +1382,15 @@ function Annie:Clear()
 	local minions = _G.SDK.ObjectManager:GetEnemyMinions(Q.Range) -- Q range is the same as W range
 	local canonMinion = GetCanonMinion(minions)
 	
-	if(clearMode == SPAM_CLEAR) then
-		if(Ready(_Q) and self.Menu.Clear.UseQ:Value()) then
-			
-			if(canonMinion ~= nil) and IsValid(canonMinion) then
-				Control.CastSpell(HK_Q, canonMinion)
-			else
-				for i = 1, #minions do
-					local minion = minions[i]
-					if IsValid(minion) then
-						Control.CastSpell(HK_Q, minion)
-					end
-				end
-			end
-		end
-		
-		if(Ready(_W) and self.Menu.Clear.UseW:Value() and (myHero.mana / myHero.maxMana) >= (self.Menu.Clear.WMana:Value() / 100)) then
-			
-			if(canonMinion ~= nil) and IsValid(canonMinion) then
-				Control.CastSpell(HK_W, canonMinion)
-			else
-				for i = 1, #minions do
-					local minion = minions[i]
-					if IsValid(minion) then
-						Control.CastSpell(HK_W, minion)
-					end
-				end
-			end
-		end
-		
-		return
-	end
 	
 	if(clearMode == SMART_CLEAR) then
-
-		if(Ready(_W) and self.Menu.Clear.UseW:Value() and (myHero.mana / myHero.maxMana) >= (self.Menu.Clear.WMana:Value() / 100)) then
-			if(canonMinion ~= nil) and IsValid(canonMinion) then
-				local WDam = getdmg("W", canonMinion, myHero)
-				local hp = _G.SDK.HealthPrediction:GetPrediction(canonMinion, W.Delay)
-				if(AnnieQActive == false) and (AnnieQTarg ~= canonMinion) then
-					if (hp > 0) and (hp + (canonMinion.health*0.08) < WDam) or (canonMinion.health + 10 < WDam) then
-						Control.CastSpell(HK_W, canonMinion)
-						return
-					end
-				end
-			end
-			
-			for i = 1, #minions do
-				local minion = minions[i]
-				if IsValid(minion) then
-					local WDam = getdmg("W", minion, myHero)
-					local hp = _G.SDK.HealthPrediction:GetPrediction(minion, W.Delay)
-					
-					--Different logic for jungle minions
-					if(minion.team == TEAM_JUNGLE) then
-						local clusterJgMinions = GetMinionsAroundMinion(W.Range, 350, minion)
-						local clusterJgPos = AverageClusterPosition(clusterJgMinions)
-						if(clusterPos ~= nil) then
-							Control.CastSpell(HK_W, clusterPos)
-							return
-						else
-							Control.CastSpell(HK_W, minion)
-							return
-						end
-					end
-					
-					if (hp > 0) and (hp + (minion.health*0.05) < WDam) or (minion.health + 5 < WDam) then
-						if(myHero.pos:DistanceTo(minion.pos) > 75) then -- Dont try to point blank your W
-							local clusterMinions = GetMinionsAroundMinion(W.Range, 350, minion)
-							if(#clusterMinions >= 2) then
-								Control.CastSpell(HK_W, minion)
-								return
-							end
-						end
-					else
-						if(myHero.pos:DistanceTo(minion.pos) > 75) then -- Dont try to point blank your W
-							local clusterMinions = GetMinionsAroundMinion(W.Range, 350, minion) --This will try to cast W on clusters of minions evenly
-							if(#clusterMinions >= 3) then
-								local clusterPos = AverageClusterPosition(clusterMinions)
-								if(clusterPos ~= nil) then
-									Control.CastSpell(HK_W, clusterPos)
-									return
-								else
-									Control.CastSpell(HK_W, minion)
-									return
-								end
-							end
-						end
-					end
-					
-				end
-			end
-		end
-		
-		if(Ready(_E) and self.Menu.Clear.UseE:Value() and (myHero.mana / myHero.maxMana) >= (self.Menu.Clear.EMana:Value() / 100)) then
-			for i = 1, #minions do
-				local minion = minions[i]
-				if IsValid(minion) then
-					if(minion.team == TEAM_JUNGLE) then
-						if(minion.attackData.target ~= 0) then
-							if(minion.attackData.target == myHero.handle) then
-								Control.CastSpell(HK_E)
-							end
-						end
-					end
-				end
-			end
-		end
-		
+	
 		if(Ready(_Q) and self.Menu.Clear.UseQ:Value()) and self:HasStunBuff()==false then
 			local minionTarget = nil
 			--Prioritize the canon minion if its low
+			local QDam = QdmgCreep()
 			if(canonMinion ~= nil) and IsValid(canonMinion) then
-				local QDam = getdmg("Q", canonMinion, myHero)
+				
 				local hp = _G.SDK.HealthPrediction:GetPrediction(canonMinion, Q.Delay+(myHero.pos:DistanceTo(canonMinion.pos)/1400))
 				
 				if (hp > 0) and (hp + (canonMinion.health*0.05) < QDam) or (canonMinion.health + 5 < QDam) then
@@ -1389,13 +1398,12 @@ function Annie:Clear()
 					return
 				end
 			end
-			
+			local AAdmg = myHero.totalDamage
 			for i = 1, #minions do
 				local minion = minions[i]
 				if IsValid(minion) then
-					local QDam = getdmg("Q", minion, myHero)
 					local hp = _G.SDK.HealthPrediction:GetPrediction(minion, Q.Delay+(myHero.pos:DistanceTo(minion.pos)/1400))
-					local AAdmg = _G.SDK.Damage:GetAutoAttackDamage(myHero, minion)
+					
 					if (hp > 0) and (hp + (minion.health*0.05) < QDam) or (minion.health + 5 < QDam) then
 						minionTarget = minion
 						break
@@ -1406,11 +1414,30 @@ function Annie:Clear()
 					end
 				end
 			end
-			
 			if(minionTarget ~= nil) then
 				Control.CastSpell(HK_Q, minionTarget)
 				return
 			end
+			local qdmg= QdmgCreep()
+			for i = 1, #minions do
+				local minion = minions[i]
+				if self.Menu.Clear.UseQ:Value() and (minion and IsValid(minion)) and ethisminion==nil then
+					if minion.distance <= Q.Range then	
+						local hp = _G.SDK.HealthPrediction:GetPrediction(minion,myHero.attackData.windUpTime+ (minion.distance/1200))		
+						if myHero.attackData.state == STATE_ATTACK and (hp > 0) and  (hp- qdmg - myHero.totalDamage <= 0)   then
+							_G.SDK.Orbwalker.ForceTarget = minion
+							_G.SDK.Orbwalker:Attack(minion)
+							ethisminiontime=Game.Timer()
+							ethisminion=minion
+
+							print("setup minion"..Game.Timer())
+							return
+						end
+					end
+				end
+			end
+			
+
 			
 		end
 		
@@ -1437,10 +1464,10 @@ function Annie:KillSteal()
 		
 		--W KS
 		if(Ready(_W) and self.Menu.KillSteal.UseW:Value()) then
-			if(myHero.pos:DistanceTo(target.pos) < W.Range) then
+			if myHero.pos:DistanceTo(target.pos) < W.Range and myHero.pos:DistanceTo(target:GetPrediction(math.huge,0.25)) < W.Range then
 				local WDam = getdmg("W", target, myHero)
 				if(WDam > target.health) then
-					Control.CastSpell(HK_W, target)
+					Control.CastSpell(HK_W, target:GetPrediction(math.huge,0.25))
 				end
 			end
 		end
@@ -1449,7 +1476,7 @@ function Annie:KillSteal()
 		if(self.Menu.Combo.RSettings.DontSoloUlt[target.charName] ~= nil) then
 			if(self.Menu.Combo.RSettings.DontSoloUlt[target.charName]:Value()) then
 				local nearbyEnemies = GetEnemiesAtPos(R.Range + R.Radius, R.Radius *2, target.pos,target)
-				local bestPos, count = self:CalculateBestCirclePosition(nearbyEnemies, R.Radius)
+				local bestPos, count = self:CalculateBestCirclePosition2(nearbyEnemies, R.Radius)
 				if(count == 1) then
 					ignoreChamp = true
 				end
@@ -1464,7 +1491,7 @@ function Annie:KillSteal()
 				if(target.health - RDam <= 0) and (myHero.pos:DistanceTo(target.pos) < R.Range + R.Radius - RBuffer) then
 					if(myHero.pos:DistanceTo(target.pos) < R.Range) then
 						local nearbyEnemies = GetEnemiesAtPos(R.Range + R.Radius -RBuffer, R.Radius*2 -RBuffer, target.pos,target)
-						local bestPos, count = self:CalculateBestCirclePosition(nearbyEnemies, R.Radius)
+						local bestPos, count = self:CalculateBestCirclePosition2(nearbyEnemies, R.Radius)
 						if(count >= 2) then
 							Control.CastSpell(HK_R, bestPos)
 						else
@@ -1621,7 +1648,8 @@ function Annie:AABlock()
 	elseif (mode == "LastHit") then
 	_G.SDK.Orbwalker:SetAttack(true)
 	elseif (mode == "Combo") then
-		if (myHero.mana / myHero.maxMana) >= 0.05 and self.Menu.Combo.AABlock:Value() and Ready(_Q) then
+	local target = GetTarget(W.Range)
+		if (myHero.mana / myHero.maxMana) >= 0.05 and self.Menu.Combo.AABlock:Value() and (Ready(_Q) or Ready(_W)) then
 			_G.SDK.Orbwalker:SetAttack(false)
 		else
 			_G.SDK.Orbwalker:SetAttack(true)
@@ -1664,15 +1692,21 @@ function Annie:GetTotalDamage(unit)
 	local totalDmg = 0
 	
 	if(Ready(_Q)) then
-		totalDmg = totalDmg + getdmg("Q", unit, myHero)
+		local QDmg = self:GetRawAbilityDamage("Q")
+		QDmg = CalcMagicalDamage(myHero, unit, QDmg)
+		totalDmg = totalDmg + QDmg
 	end
 	
 	if(Ready(_W)) then
-		totalDmg = totalDmg + getdmg("W", unit, myHero)
+		local WDmg = self:GetRawAbilityDamage("W")
+		WDmg = CalcMagicalDamage(myHero, unit, WDmg)
+		totalDmg = totalDmg + WDmg
 	end
 	
 	if(Ready(_R) and not self:HasTibbers()) then
-		totalDmg = totalDmg + getdmg("R", unit, myHero)
+		local RDmg = self:GetRawAbilityDamage("R")
+		RDmg = CalcMagicalDamage(myHero, unit, RDmg)
+		totalDmg = totalDmg + RDmg
 		
 		local TibbersAA = ((myHero:GetSpellData(_R).level * 25) + 25) + 0.15 * myHero.ap
 		local TibbersAOE = ((myHero:GetSpellData(_R).level * 20) + (0.12 * myHero.ap))
@@ -1708,6 +1742,47 @@ function Annie:GetTotalDamage(unit)
 	local AAdmg = getdmg("AA", unit, myHero)
 	
 	totalDmg = totalDmg + AAdmg
+	
+	return totalDmg
+end
+
+function Annie:GetTotalComboDamage(unit)
+	local totalDmg = 0
+	
+	if(Ready(_Q)) then
+		local QDmg = self:GetRawAbilityDamage("Q")
+		QDmg = CalcMagicalDamage(myHero, unit, QDmg)
+		totalDmg = totalDmg + QDmg
+	end
+	
+	if(Ready(_W)) then
+		local WDmg = self:GetRawAbilityDamage("W")
+		WDmg = CalcMagicalDamage(myHero, unit, WDmg)
+		totalDmg = totalDmg + WDmg
+	end
+	
+	if(Ready(_R) and not self:HasTibbers()) then
+		local RDmg = self:GetRawAbilityDamage("R")
+		RDmg = CalcMagicalDamage(myHero, unit, RDmg)
+		totalDmg = totalDmg + RDmg
+	end
+	
+	if self:HasElectrocute(myHero) then
+		local baseDmg = 30+(150/(17*(myHero.levelData.lvl)))
+		local bonusDmg = (myHero.ap * 0.25)+(myHero.bonusDamage*0.4)
+		local value = baseDmg + bonusDmg 
+		local ElecDmg=_G.SDK.Damage:CalculateDamage(myHero, unit, _G.SDK.DAMAGE_TYPE_MAGICAL , value )
+		totalDmg= totalDmg + ElecDmg
+	end
+	
+	--6655 = Ludens
+	local ludensCheck, ludensIsUp = CheckDmgItems(6655)
+	if(ludensCheck and ludensIsUp) then
+		local ludensDmg = 100 + (myHero.ap * 0.1)
+		local ludensCalcDmg = CalcMagicalDamage(myHero, unit, ludensDmg)
+		
+		totalDmg = totalDmg + ludensCalcDmg
+	end
 	
 	return totalDmg
 end
@@ -1752,14 +1827,14 @@ function Annie:NinjaCombo()
 			end		
 
 			local nearbyEnemies = GetEnemiesAtPos(searchrange, R.Radius*2 -RBuffer, target.pos, target)
-			local bestPos, count = self:CalculateBestCirclePosition(nearbyEnemies, R.Radius-RBuffer, true)
+			local bestPos, count = self:CalculateBestCirclePosition2(nearbyEnemies, R.Radius-RBuffer, true)
 
 			if(flashSlot ~= nil and canFlash) then
-				if(myHero.pos:DistanceTo(bestPos) < R.Range + flashRange -50) and (myHero.pos:DistanceTo(target.pos) > R.Range) then
+				if(myHero.pos:DistanceTo(bestPos) < R.Range + flashRange -75) and (myHero.pos:DistanceTo(target.pos) > R.Range) then
 					_G.SDK.Orbwalker:SetMovement(false)
 					_G.Control.CastSpell(HK_E)
 					_G.Control.CastSpell(HK_R, bestPos)
-					_G.Control.CastSpell(flashSlot)
+					_G.Control.CastSpell("O")
 					_G.SDK.Orbwalker:SetMovement(true)
 				end
 			end
@@ -1768,19 +1843,19 @@ function Annie:NinjaCombo()
 				Control.CastSpell(HK_E)
 			end
 			
-			if(myHero.pos:DistanceTo(bestPos) < R.Range + RBuffer) and Ready(_R) then
+			if(myHero.pos:DistanceTo(bestPos) < R.Range ) and Ready(_R) then --+rbuffer
 				Control.CastSpell(HK_R, bestPos)
 			end
 			
 		end
 		
 		if(self:HasTibbers()) then
-			if(myHero.pos:DistanceTo(target.pos) < 600) then --Ignite range
-				UseIgnite(target)
-			end
+			-- if(myHero.pos:DistanceTo(target.pos) < 600) then --Ignite range
+				-- UseIgnite(target)
+			-- end
 			
-			if(self.Menu.Combo.UseW:Value() and Ready(_W) and myHero.pos:DistanceTo(target.pos) < W.Range) then
-				Control.CastSpell(HK_W, target)
+			if self.Menu.Combo.UseW:Value() and Ready(_W) and myHero.pos:DistanceTo(target.pos) < W.Range and myHero.pos:DistanceTo(target:GetPrediction(math.huge,0.25)) < W.Range then
+				Control.CastSpell(HK_W, target:GetPrediction(math.huge,0.25))
 			end
 			
 			if(self.Menu.Combo.UseQ:Value() and Ready(_Q) and myHero.pos:DistanceTo(target.pos) < Q.Range) then
@@ -1847,10 +1922,11 @@ function Annie:CantKill(unit, kill, ss, aa)
 	return false
 end
 
+local alphaLerp = 0
 function Annie:Draw()
 	if myHero.dead then return end
 	
-	if(self.Menu.Drawings.DrawUltClusters:Value()) then
+	if(self.Menu.Drawings.Debug.DrawUltClusters:Value()) then
 		self:DebugCluster()
 	end
 	
@@ -1863,7 +1939,7 @@ function Annie:Draw()
 		DrawCircle(myHero, R.Range + R.Radius + 400, 1, DrawColor(20, 255, 255, 255)) --(Alpha, R, G, B)
 		local heroPos = myHero.pos:To2D()
 		
-		if Ready(_R) and self:HasTibbers() == false and Ready(_Q) and Ready(_W) then
+		if Ready(_R) and self:HasTibbers() == false then
 			if (self.Menu.Combo.NinjaCombo.RequireStun:Value()) then 
 				if(self:HasStunBuff() or (self:GetPassiveStacks() ==3 and Ready(_E))) then
 					DrawText("Ninja: [READY]", 18, heroPos + Vector(-35, 50, 0), DrawColor(255, 55, 250, 110))
@@ -1878,32 +1954,80 @@ function Annie:Draw()
 		end
 	end
 	
-	if(self.Menu.Drawings.DrawChampTracker:Value()) then
-		-- Draw lines connecting to enemy champions
-		for k, v in pairs(Enemies) do
-			local distMax = 3000
-			local distMin = R.Range
-			if(v and IsValid(v) and myHero.pos.DistanceTo(v.pos) <= distMax and myHero.pos.DistanceTo(v.pos) > distMin) then
-				local lineAlphaVal = ((myHero.pos.DistanceTo(v.pos) - distMin) / (distMax - distMin)) * 0.9
-				DrawLine(myHero.pos:To2D(), v.pos:To2D(), 1, DrawColor(300 * lineAlphaVal, 255, 0, 0))
+	if(self.Menu.Drawings.DrawKillable:Value()) then
+		self:DrawKillable()
+	end
+	
+	if(self.Menu.Drawings.DamageHPBar.DrawDamageHPBar:Value()) then
+		self:DrawDamageHPBars()
+		local mode = GetMode()
+		-- if(mode == "Combo") then
+			-- alphaLerp = math.max(alphaLerp - 0.1, 0)
+		-- else
+			 alphaLerp = math.min(alphaLerp + 0.1, 1)
+		-- end
+	end
+end
+	
+function Annie:DrawDamageHPBars()
+	for _, enemy in pairs(Enemies) do
+		if(enemy.valid and IsValid(enemy)) then
+			if(enemy.toScreen.onScreen) then
+				if(Ready(_Q) or Ready(_W) or Ready(_R)) then
+					local bar = enemy.pos:To2D()
+					local barLength = 150
+					local barHeight = 4
+					local barOffset = self.Menu.Drawings.DamageHPBar.YOffset:Value()
+					local hpRatio = (enemy.health / enemy.maxHealth)
+					local dmg = self:GetTotalComboDamage(enemy)
+					local dmgRatio = (dmg / enemy.maxHealth)
+					if(enemy.health - dmg <= 0) then
+						dmgRatio = hpRatio
+					end
+					--Bar BG
+					Draw.Rect(bar.x - (barLength/2) -3, bar.y + barOffset - 3, barLength +6, barHeight + 6, DrawColor(225 * alphaLerp, 0, 0, 0))
+					
+					--Health bar
+					Draw.Rect(bar.x - (barLength/2), bar.y + barOffset, barLength * (hpRatio - 0.02), barHeight, DrawColor(255 * alphaLerp, 55, 255, 115))
+				
+					--Damage bar
+					Draw.Rect(bar.x - (barLength/2) + (barLength * hpRatio) - (barLength * dmgRatio), bar.y + barOffset, barLength * dmgRatio, barHeight, DrawColor(255 * alphaLerp, 255, 45, 115))
+				end
 			end
 		end
 	end
-	
-	if(self.Menu.Drawings.DrawKillable:Value()) then
-		local enemies = GetEnemyHeroes(2000)
-		if(enemies ~= nil) then
+end
+
+function Annie:DrawKillable()
+	local enemies = GetEnemyHeroes(3000)
+	if(#enemies > 0) then
 			for _, enemy in pairs(enemies) do
-				if(enemy and enemy.valid and IsValid(enemy)) then
+			if(enemy.valid and IsValid(enemy)) then
 					if(self:IsKillable(enemy)) then
-						DrawCircle(enemy, 100, 10, DrawColor(180, 255, 0, 155)) --(Alpha, R, G, B)
-                    elseif comboDamageData[enemy.name] ~= nil then		 
-                        DrawText(math.floor(((enemy.health-comboDamageData[enemy.name])/enemy.maxHealth)*100).."%", 24, enemy.pos2D.x, enemy.pos2D.y-50,DrawColor(255, 255, 255, 255))
+					self:DrawKillReticle(enemy)
 					end
 				end
 			end
 		end
 	end
+
+function Annie:DrawKillReticle(unit)
+	local reticleRadius = 75
+	local speed = 135
+	local newPos = Vector(unit.pos.x, unit.pos.y + 15, unit.pos.z)
+	DrawCircle(unit, reticleRadius, 2, DrawColor(255, 255, 25, 25))
+	local angle = ((GetTickCount() / 1000) % 360) * speed
+	
+	local vec1 = (Vector(math.cos(math.rad(angle)) + unit.pos.x, unit.pos.y, math.sin(math.rad(angle)) + unit.pos.z) - unit.pos):Normalized()
+	local vec2 = (Vector(math.cos(math.rad(angle + 90)) + unit.pos.x, unit.pos.y, math.sin(math.rad(angle + 90)) + unit.pos.z) - unit.pos):Normalized()
+	local vec3 = (Vector(math.cos(math.rad(angle + 180)) + unit.pos.x, unit.pos.y, math.sin(math.rad(angle + 180)) + unit.pos.z) - unit.pos):Normalized()
+	local vec4 = (Vector(math.cos(math.rad(angle + 270)) + unit.pos.x, unit.pos.y, math.sin(math.rad(angle + 270)) + unit.pos.z) - unit.pos):Normalized()
+	
+	
+	DrawLine((unit.pos + (vec1 * (reticleRadius - 20))):To2D(), (unit.pos + (vec1 * (reticleRadius + 20))):To2D(), 3, DrawColor(255, 255, 25, 25))
+	DrawLine((unit.pos + (vec2 * (reticleRadius - 20))):To2D(), (unit.pos + (vec2 * (reticleRadius + 20))):To2D(), 3, DrawColor(255, 255, 25, 25))
+	DrawLine((unit.pos + (vec3 * (reticleRadius - 20))):To2D(), (unit.pos + (vec3 * (reticleRadius + 20))):To2D(), 3, DrawColor(255, 255, 25, 25))
+	DrawLine((unit.pos + (vec4 * (reticleRadius - 20))):To2D(), (unit.pos + (vec4 * (reticleRadius + 20))):To2D(), 3, DrawColor(255, 255, 25, 25))
 end
 	
 Callback.Add("Load", function()	

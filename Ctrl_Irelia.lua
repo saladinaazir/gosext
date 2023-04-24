@@ -9,17 +9,6 @@ require "DamageLib"
 --|                    Checks                    |--
 ----------------------------------------------------
 
-if not FileExist(COMMON_PATH .. "GamsteronPrediction.lua") then
-	DownloadFileAsync("https://raw.githubusercontent.com/gamsteron/GOS-EXT/master/Common/GamsteronPrediction.lua", COMMON_PATH .. "GamsteronPrediction.lua", function() end)
-	print("gamsteronPred. installed Press 2x F6")
-	return
-end
-
-if not FileExist(COMMON_PATH .. "PremiumPrediction.lua") then
-	DownloadFileAsync("https://raw.githubusercontent.com/Ark223/GoS-Scripts/master/PremiumPrediction.lua", COMMON_PATH .. "PremiumPrediction.lua", function() end)
-	print("PremiumPred. installed Press 2x F6")
-	return
-end
 
 if not FileExist(COMMON_PATH .. "GGPrediction.lua") then
 	DownloadFileAsync("https://raw.githubusercontent.com/gamsteron/GG/master/GGPrediction.lua", COMMON_PATH .. "GGPrediction.lua", function() end)
@@ -807,20 +796,6 @@ function Irelia:__init()
 	Callback.Add("Draw", function() self:Draw() end)
 	Callback.Add("WndMsg", function(...) self:OnWndMsg(...) end)
 
-	if not PredLoaded then
-		DelayAction(function()
-			if self.Menu.MiscSet.Pred.Change:Value() == 1 then
-				require('GamsteronPrediction')
-				PredLoaded = true
-			elseif self.Menu.MiscSet.Pred.Change:Value() == 2 then
-				require('PremiumPrediction')
-				PredLoaded = true
-			else 
-				require('GGPrediction')
-				PredLoaded = true					
-			end
-		end, 1)	
-	end
 end
 
 function Irelia:IsOnButton(pt)
@@ -1013,8 +988,6 @@ function Irelia:LoadMenu()
 			
 	--Prediction
 	self.Menu.MiscSet:MenuElement({type = MENU, id = "Pred", name = "Prediction Mode"})
-	self.Menu.MiscSet.Pred:MenuElement({name = " ", drop = {"After change Prediction Typ press 2xF6"}})	
-	self.Menu.MiscSet.Pred:MenuElement({id = "Change", name = "Change Prediction Typ", value = 3, drop = {"Gamsteron Prediction", "Premium Prediction", "GGPrediction"}})	
 	self.Menu.MiscSet.Pred:MenuElement({id = "PredR", name = "Hitchance[R]", value = 2, drop = {"Normal", "High", "Immobile"}})
 	self.Menu.MiscSet.Pred:MenuElement({id = "PredW", name = "Hitchance[W]", value = 2, drop = {"Normal", "High", "Immobile"}})
 	self.Menu.MiscSet.Pred:MenuElement({id = "PredE", name = "Hitchance[E]", value = 2, drop = {"Normal", "High", "Immobile"}})	
@@ -1751,19 +1724,7 @@ function Irelia:CastE(unit)
 end
 
 function Irelia:CastR(unit)
-	if self.Menu.MiscSet.Pred.Change:Value() == 1 then
-		local pred = GetGamsteronPrediction(unit, RData, myHero)
-		if pred.Hitchance >= self.Menu.MiscSet.Pred.PredR:Value()+1 then
-			Control.CastSpell(HK_R, pred.CastPosition)
-		end
-	elseif self.Menu.MiscSet.Pred.Change:Value() == 2 then
-		local pred = _G.PremiumPrediction:GetPrediction(myHero, unit, RspellData)
-		if pred.CastPos and ConvertToHitChance(self.Menu.MiscSet.Pred.PredR:Value(), pred.HitChance) then
-			Control.CastSpell(HK_R, pred.CastPos)
-		end
-	else
 		self:CastGGPred(unit)	
-	end
 end	
 
 function Irelia:CastGGPred(unit)

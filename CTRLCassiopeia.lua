@@ -1,28 +1,13 @@
+local Heroes = {"Cassiopeia"}
+if not table.contains(Heroes, myHero.charName) then return end
 require "GGPrediction"
+require "DamageLib"
 local heroes = false
-local checkCount = 0
-local menu = 1
-local Orb
-local _OnWaypoint = {}
-local _OnVision = {}
-local castSpell = {state = 0, tick = GetTickCount(), casting = GetTickCount() - 1000, mouse = mousePos}
-local spellcast = {state = 1, mouse = mousePos}
-local ItemHotKey = {[ITEM_1] = HK_ITEM_1, [ITEM_2] = HK_ITEM_2,[ITEM_3] = HK_ITEM_3, [ITEM_4] = HK_ITEM_4, [ITEM_5] = HK_ITEM_5, [ITEM_6] = HK_ITEM_6, [ITEM_7] = HK_ITEM_7,}
-local barHeight, barWidth, barXOffset, barYOffset = 8, 103, 0, 0
 local Allies, Enemies, Turrets, Units = {}, {}, {}, {}
-local TEAM_ALLY = myHero.team
-local TEAM_ENEMY = 300 - myHero.team
-local TEAM_JUNGLE = 300
-local charging = false
-local wClock = 0
 local clock = os.clock
-local Latency = Game.Latency
-local ping = Latency() * 0.001
-local MyHeroRange = myHero.range + myHero.boundingRadius * 2
 local DrawCircle = Draw.Circle
 local DrawColor = Draw.Color
 local DrawText = Draw.Text
-local ControlCastSpell = Control.CastSpell
 local GameCanUseSpell = Game.CanUseSpell
 local GameTimer = Game.Timer
 local GameHeroCount = Game.HeroCount
@@ -31,21 +16,14 @@ local GameMinionCount = Game.MinionCount
 local GameMinion = Game.Minion
 local GameTurretCount = Game.TurretCount
 local GameTurret = Game.Turret
-local GameObjectCount = Game.ObjectCount
-local GameObject = Game.Object
-local GameParticleCount = Game.ParticleCount
-local GameParticle = Game.Particle
-local GameMissileCount = Game.MissileCount
-local GameMissile = Game.Missile
+
 local GameIsChatOpen = Game.IsChatOpen
-local TEAM_ALLY = myHero.team
 local TEAM_ENEMY = 300 - myHero.team
 local TEAM_JUNGLE = 300
 local MathSqrt = math.sqrt
 local MathHuge = math.huge
 local TableInsert = table.insert
 local TableRemove = table.remove
---_G.LATENCY = 0.05
 
 
 function LoadUnits()
@@ -70,12 +48,6 @@ local function CheckLoadedEnemyies()
 	return count
 end
 
-local function ConvertToHitChance(menuValue, hitChance)
-    return menuValue == 1 and _G.PremiumPrediction.HitChance.High(hitChance)
-    or menuValue == 2 and _G.PremiumPrediction.HitChance.VeryHigh(hitChance)
-    or _G.PremiumPrediction.HitChance.Immobile(hitChance)
-end
-
 local function IsValid(unit)
     if (unit and unit.valid and unit.isTargetable and unit.alive and unit.visible and unit.networkID and unit.pathing and unit.health > 0) then
         return true;
@@ -88,35 +60,19 @@ local function Ready(spell)
 end
 
 function GetMode()
-    if Orb == 1 then
-        if combo == 1 then
-            return 'Combo'
-        elseif harass == 2 then
-            return 'Harass'
-        elseif lastHit == 3 then
-            return 'Lasthit'
-        elseif laneClear == 4 then
-            return 'Clear'
-        end
-    elseif Orb == 2 then
-		if _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_COMBO] then
-			return "Combo"
-		elseif _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_HARASS] then
-			return "Harass"
-		elseif _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_LANECLEAR] or _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_JUNGLECLEAR] then
-			return "Clear"
-		elseif _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_LASTHIT] then
-			return "LastHit"
-		elseif _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_FLEE] then
-			return "Flee"
-		end
-    elseif Orb == 3 then
-        return GOS:GetMode()
-    elseif Orb == 4 then
-        return _G.gsoSDK.Orbwalker:GetMode()
-	elseif Orb == 5 then
-	  return _G.PremiumOrbwalker:GetMode()
+
+	if _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_COMBO] then
+		return "Combo"
+	elseif _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_HARASS] then
+		return "Harass"
+	elseif _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_LANECLEAR] or _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_JUNGLECLEAR] then
+		return "Clear"
+	elseif _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_LASTHIT] then
+		return "LastHit"
+	elseif _G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_FLEE] then
+		return "Flee"
 	end
+
 
     if _G.SDK then
         return
@@ -132,9 +88,6 @@ function GetMode()
         or
 		_G.SDK.Orbwalker.Modes[_G.SDK.ORBWALKER_MODE_FLEE] and "Flee"
 		or nil
-
-	elseif _G.PremiumOrbwalker then
-		return _G.PremiumOrbwalker:GetMode()
 	end
 	return nil
 end
@@ -144,12 +97,9 @@ function GetTarget(range)
 end
 
 local function SetAttack(bool)
-	if _G.EOWLoaded then
-		EOW:SetAttacks(bool)
-	elseif _G.SDK then
+
+	if _G.SDK then
 		_G.SDK.Orbwalker:SetAttack(bool)
-	elseif _G.PremiumOrbwalker then
-		_G.PremiumOrbwalker:SetAttack(bool)
 	else
 		GOS.BlockAttack = not bool
 	end
@@ -157,12 +107,8 @@ local function SetAttack(bool)
 end
 
 local function SetMovement(bool)
-	if _G.EOWLoaded then
-		EOW:SetMovements(bool)
-	elseif _G.SDK then
+	if _G.SDK then
 		_G.SDK.Orbwalker:SetMovement(bool)
-	elseif _G.PremiumOrbwalker then
-		_G.PremiumOrbwalker:SetMovement(bool)
 	else
 		GOS.BlockMovement = not bool
 	end
@@ -284,18 +230,17 @@ function LoadScript()
 	Menu = MenuElement({type = MENU, id = "PussyAIO".. myHero.charName, name = myHero.charName})
 	Menu:MenuElement({name = " ", drop = {"Version 0.13"}})	
 		Menu:MenuElement({name = " ", drop = {"General Settings"}})	
-		
+		Menu:MenuElement({id = "EAA", name = "E only/E+AA key toggle (Combo/lasthit)", key = 84, toggle = true, value = true})
 		--Combo   
 		Menu:MenuElement({type = MENU, id = "combo", name = "Combo"})		
 		Menu.combo:MenuElement({id = "Q", name = "Use Q", value = false, toggle=false, key=string.byte("S")})
 		Menu.combo:MenuElement({id = "W", name = "Use W", value = false, toggle=false, key=string.byte("A")})
 		Menu.combo:MenuElement({id = "E", name = "Use E", value = true})
-		Menu.combo:MenuElement({id = "SR", name = "Manual R ", key = string.byte("A")})
+		--Menu.combo:MenuElement({id = "SR", name = "Manual R ", key = string.byte("A")})
 		Menu.combo:MenuElement({id = "R", name = "Use R ", value = true})
-		Menu.combo:MenuElement({id = "R2", name = "Use R Stun/Slow if killable", value = true})
+		--Menu.combo:MenuElement({id = "R2", name = "Use R Stun/Slow if killable", value = true})
 		Menu.combo:MenuElement({id = "Count", name = "Min facing Amount to hit R", value = 2, min = 1, max = 5, step = 1})
-		Menu.combo:MenuElement({id = "P", name = "Use Panic R and Ghost", value = true})
-		Menu.combo:MenuElement({id = "HP", name = "Min HP % to Panic R", value = 30, min = 0, max = 100, step = 1})
+		Menu.combo:MenuElement({id = "distbehind", name = "distance behind target pred to cast Q if facing", value = 25, min = 0, max = 75, step = 5})
 		Menu.combo:MenuElement({name = " ", drop = {"-------------------------------------------"}})
 		Menu.combo:MenuElement({name = " ", drop = {"-------------------------------------------"}})
 		Menu.combo:MenuElement({name = " ", drop = {"Block AutoAttack Settings"}})
@@ -310,10 +255,7 @@ function LoadScript()
 
 		--Clear
 		Menu:MenuElement({type = MENU, id = "clear", name = "Clear"})
-		Menu.clear:MenuElement({id = "Q", name = "Use Q", value = true})
-		Menu.clear:MenuElement({id = "W", name = "Use W", value = true})
-		Menu.clear:MenuElement({id = "Count", name = "Min Minions to hit W", value = 3, min = 1, max = 5, step = 1})
-		Menu.clear:MenuElement({id = "E", name = "E only/E+AA key toggle (used in combo mode as well)", key = 84, toggle = true, value = true})
+
 		Menu.clear:MenuElement({id = "E2", name = "Auto E off in Combo Mode", value = true})
 
 		--JungleClear
@@ -323,15 +265,13 @@ function LoadScript()
 		Menu.jclear:MenuElement({id = "E", name = "Use E[poisend or Lasthit]", value = true})
 
 		--KillSteal
-		Menu:MenuElement({type = MENU, id = "ks", name = "KillSteal"})
-		Menu.ks:MenuElement({id = "Q", name = "UseQ", value = true})
-		Menu.ks:MenuElement({id = "W", name = "UseW", value = true})
-		Menu.ks:MenuElement({id = "E", name = "UseE", value = true})
+--[[ 		Menu:MenuElement({type = MENU, id = "ks", name = "KillSteal"})
+		Menu.ks:MenuElement({id = "E", name = "UseE", value = true}) ]]
 
 		--Prediction
 		Menu:MenuElement({type = MENU, id = "Pred", name = "Prediction"})
 		Menu.Pred:MenuElement({id = "PredQ", name = "Hitchance[Q]", value = 1, drop = {"Normal", "High", "Immobile"}})
-
+		Menu.Pred:MenuElement({id = "maxdist", name = "max [Q] dist extended of target you're chasing", value = 50, min = 0, max = 100, step = 5})
 		--RSetting
 		Menu:MenuElement({type = MENU, id = "RS", name = "R Range Setting"})
 		Menu.RS:MenuElement({id = "Rrange", name = "Max CastR Range", value = 700, min = 100, max = 825, identifier = "range"})
@@ -376,15 +316,13 @@ function LoadScript()
 
 	QData =
 	{
-	Type = _G.SPELLTYPE_CIRCLE, Delay = 0.75+ping, Radius = 80, Range = 850, Speed = MathHuge, Collision = false
+	Type = _G.SPELLTYPE_CIRCLE, Delay = 0.75, Radius = 80, Range = 850, Speed = MathHuge, Collision = false
 	}
 
-	spellData = {speed = MathHuge, range = 850, delay = 0.75+ping, radius = 80, collision = {nil}, type = "circular"}
+	spellData = {speed = MathHuge, range = 850, delay = 0.75, radius = 80, collision = {nil}, type = "circular"}
 
 	if _G.SDK then
 		_G.SDK.Orbwalker:OnPreAttack(function(...) StopAutoAttack(...) end)
-	elseif _G.PremiumOrbwalker then
-		_G.PremiumOrbwalker:OnPreAttack(function(...) StopAutoAttack(...) end)
 	end
 
 	Callback.Add("Tick", function() Tick() end)
@@ -392,7 +330,7 @@ function LoadScript()
 	Callback.Add("Draw", function()
 		if myHero.dead == false and Menu.drawings.ON:Value() then
 			mhp=myHero.pos:To2D()
-			if Menu.clear.E:Value() then				
+			if Menu.EAA:Value() then				
 				Draw.Text("AA-E",15,mhp.x,mhp.y-30,Draw.Color(255 ,0,255,0))
 			else
 				Draw.Text("E",15,mhp.x,mhp.y-30,Draw.Color(255 ,255,0,0))
@@ -439,9 +377,8 @@ end
 local QRange = 875
 local MaxWRange = 700
 local ERange = 700
-local RRange = 825
 
-local Q = {Type = GGPrediction.SPELLTYPE_CIRCLE, Delay = 0.65, Range = 850, Radius = 135, Speed = math.huge, Collision = false}
+local Q = {Type = GGPrediction.SPELLTYPE_CIRCLE, Delay = 0.65, Range = 850, Radius = 150, Speed = math.huge, Collision = false}
 
 
 function GetCircleIntersectionPoints(p1, p2, center, radius)
@@ -491,7 +428,6 @@ function GetExtendedSpellPrediction(target, spellData)
 	local defaultRangeVec = (predVec - myHero.pos):Normalized() * spellData.Range + myHero.pos
 	--DrawCircle(testVec, 150, 3)
 	--Find the difference between these two points as a vector to create a line, and then find a perpendicular bisecting line at the extended cast position using this line
-	local vec = (predVec - defaultRangeVec):Normalized() * 100 + myHero.pos
 	local vecNormal = (predVec - defaultRangeVec):Normalized()
 	local perp = Vector(vecNormal.z, 0, -vecNormal.x) * spellData.Radius + predVec
 	local negPerp = Vector(-vecNormal.z, 0, vecNormal.x) * spellData.Radius + predVec
@@ -504,7 +440,6 @@ function GetExtendedSpellPrediction(target, spellData)
 	
 	--We only need one of the intersection points to form our precise circle
 	local intVec = Vector(intersections[0][1], myHero.pos.y, intersections[0][3])
-	local halfVec = Vector((intersections[0][1] + intersections[1][1]) /2, myHero.pos.y, (intersections[0][3] + intersections[1][3])/2)
 	
 	local preciseCircRadius = intVec:DistanceTo(predVec)
 	local preciseSpellData = {Type = spellData.Type, Delay = spellData.Delay, Range = spellData.Range + spellData.Radius, Radius = preciseCircRadius, Speed = spellData.Speed, Collision = spellData.Collision}
@@ -520,33 +455,39 @@ function Tick()
 	if MyHeroNotReady() then return end
 	local target = GetTarget(950)
 	if Menu.combo.Q:Value() then
-	_G.SDK.Orbwalker:Orbwalk()
+		_G.SDK.Orbwalker:Orbwalk()
 		if target and Ready(_Q) and gameTick < GameTimer() then 
 			local QPrediction,isExtended = GetExtendedSpellPrediction(target, Q)
 			if QPrediction.CastPosition and QPrediction:CanHit(HITCHANCE_HIGH) then
 				local castPos = QPrediction.CastPosition
 				if(isExtended) then
-					if myHero.pos:DistanceTo(castPos)<850+100 then
-						if IsFacing2(target)==false and myHero.pos:DistanceTo(castPos)<850+50 then
+			--		print(myHero.pos:DistanceTo(castPos))
+					if myHero.pos:DistanceTo(castPos)<850+ Menu.Pred.maxdist:Value() then
+						if IsFacing2(target)==false and myHero.pos:DistanceTo(castPos)<850+ Menu.Pred.maxdist:Value() then
 							castPos = myHero.pos:Extended(castPos, 850)								
 						elseif IsFacing2(target) then
 							castPos = myHero.pos:Extended(castPos, 805)
 						else 
 							return
 						end
-						print(myHero.pos:DistanceTo(castPos))
+				
 						Control.CastSpell(HK_Q, castPos)
 						gameTick = GameTimer() + 0.2
 					end
 				else
-						if IsFacing2(target) and myHero.pos:DistanceTo(castPos)<850+50 then
-							print("awayasd")
-							local castPos =Vector(castPos):Extended(myHero.pos,25)
+						if IsFacing2(target) and myHero.pos:DistanceTo(castPos)<850+ Menu.Pred.maxdist:Value() then
+						--	print("awayasd")
+							if myHero.pos:DistanceTo(castPos)>850 then
+								castPos = myHero.pos:Extended(castPos, 850)
+							end
 							Control.CastSpell(HK_Q, castPos)
 							gameTick = GameTimer() + 0.2
-						elseif IsFacing2(target)==false then
-								print("towardsasd")
-							local castPos =Vector(castPos):Extended(myHero.pos,-25)
+						elseif IsFacing2(target)==false and myHero.pos:DistanceTo(castPos)<850+Menu.Pred.maxdist:Value() then
+							--	print("towardsasd")
+							local castPos =Vector(castPos):Extended(myHero.pos,-Menu.combo.distbehind:Value())
+							if myHero.pos:DistanceTo(castPos)>850 then
+								castPos = myHero.pos:Extended(castPos, 850)
+							end
 							Control.CastSpell(HK_Q, castPos)
 							gameTick = GameTimer() + 0.2
 						else 
@@ -585,8 +526,8 @@ function Tick()
 				if QPrediction.CastPosition and QPrediction:CanHit(HITCHANCE_HIGH) then
 					local castPos = QPrediction.CastPosition
 					if(isExtended) then
-						if myHero.pos:DistanceTo(castPos)<850+100 then
-							if IsFacing2(target)==false and myHero.pos:DistanceTo(castPos)<850+50 then
+						if myHero.pos:DistanceTo(castPos)<850+ Menu.Pred.maxdist:Value() then
+							if IsFacing2(target)==false and myHero.pos:DistanceTo(castPos)<850+ Menu.Pred.maxdist:Value() then
 								castPos = myHero.pos:Extended(castPos, 850)
 								
 							elseif IsFacing2(target) then
@@ -595,18 +536,20 @@ function Tick()
 							else 
 								return
 							end
-							print(myHero.pos:DistanceTo(castPos))
+							--print(myHero.pos:DistanceTo(castPos))
 							Control.CastSpell(HK_Q, castPos)
 							gameTick = GameTimer() + 0.2
 						end
 					else
-						if IsFacing2(target) and myHero.pos:DistanceTo(castPos)<850+50 then
+						if IsFacing2(target) and myHero.pos:DistanceTo(castPos)<850+ Menu.Pred.maxdist:Value() then
 						--	print("away")
-							local castPos =Vector(castPos):Extended(myHero.pos,50)
 							Control.CastSpell(HK_Q, castPos)
 						elseif IsFacing2(target)==false then
 						--		print("towards")
-							local castPos =Vector(castPos):Extended(myHero.pos,-50)
+							local castPos =Vector(castPos):Extended(myHero.pos,-Menu.combo.distbehind:Value())
+							if myHero.pos:DistanceTo(castPos)>850 then
+								castPos = myHero.pos:Extended(castPos, 850)
+							end
 							Control.CastSpell(HK_Q, castPos)
 						else 
 							return
@@ -622,19 +565,19 @@ function Tick()
 	local Mode = GetMode()
 	if Mode == "Combo" then
 		Combo()
-		if Menu.combo.R2:Value() then
+--[[ 		if Menu.combo.R2:Value() then
 			KillR()
-		end
+		end ]]
 	elseif Mode == "LastHit" or  Mode == "Clear" then
 		Lasthit()
+		if Mode == "Clear" then
+			JClear()
+		end
 	elseif Mode == "Harass" then
 		Harass()
-	elseif Mode == "Clear" then
-		Clear()
-		JClear()
 	end
 
-	if Menu.clear.E:Value() then
+--[[ 	if Menu.EAA:Value() then
 		if Menu.clear.E2:Value() then
 			if Mode ~= "Combo" then
 			--	AutoE()
@@ -643,14 +586,13 @@ function Tick()
 			AutoE()
 		end
 	end
+ ]]
+	--if Menu.combo.SR:Value() then
+	--	SemiR()
+--	end
 
-	if Menu.combo.SR:Value() then
-		SemiR()
-	end
-
-	KsQ()
-	KsW()
-	KsE()
+	--KsQ()
+	--()
 end
 
 local function ReadyForE()
@@ -676,11 +618,10 @@ function StopAutoAttack(args)
 		args.Process = false
 		return
 	end
-	if Menu.clear.E:Value()==false and Menu.combo.Block:Value() and Mode == "Combo"  then
+	if Menu.EAA:Value()==false and Menu.combo.Block:Value() and Mode == "Combo"  then
 		args.Process = false
 		return
 	end		
-	
 	if (Mode == "LastHit" or Mode == "Clear") and Ready(_E) then
 		local hp = _G.SDK.HealthPrediction:GetPrediction(args.Target, 0.125 + (args.Target.distance/2500)+0.05)	
 		if hp<EdmgCreep() or HasPoison(args.Target) and PEdmgCreep()>hp  then
@@ -691,8 +632,6 @@ function StopAutoAttack(args)
 		end
 	end
 end
-
-
 
 local function GetAngle(v1, v2)
 	local vec1 = v1:Len()
@@ -768,9 +707,6 @@ end
 
 
 local function RLogic()
-	local RTarget = nil
-	local Most = 0
-	local ShouldCast = false
 	local InFace = {}
 
 	for i = 1, GameHeroCount() do
@@ -913,7 +849,7 @@ if target == nil then return end
 		if Menu.combo.R:Value() and Ready(_R) then
 			local RTargets, castpos, number = RLogic()
 			if number and (_G.SDK.TargetSelector.Selected==nil or locate(RTargets,_G.SDK.TargetSelector.Selected)) then
-				print(number)
+			--	print(number)
 				Control.CastSpell(HK_R, castpos)
 			end
 		end
@@ -967,7 +903,7 @@ function Lasthit()
 		--if  then
 			for i = 1, #minions do
 				local minion = minions[i]
-				if Menu.clear.E:Value() and (minion and IsValid(minion)) and ethisminion==nil then
+				if Menu.EAA:Value() and (minion and IsValid(minion)) and ethisminion==nil then
 					if minion.distance <= 650 then	
 						local hp = _G.SDK.HealthPrediction:GetPrediction(minion,myHero.attackData.windUpTime+ (minion.distance/1200)+0.05)		
 						if myHero.attackData.state == STATE_ATTACK and (hp > 0) and  ((hp- edmg - myHero.totalDamage <= 0) or (HasPoison(minion) and (hp- pedmg- myHero.totalDamage<= 0)))  then
@@ -999,24 +935,13 @@ if target == nil then return end
         end
 
         if Dist < QRange and Menu.harass.Q:Value() and Ready(_Q) and myHero.mana/myHero.maxMana > Menu.mana.Q:Value()/100 then
-			if Menu.Pred.Change:Value() == 1 then
-				local pred = GetGamsteronPrediction(target, QData, myHero)
-				if pred.Hitchance >= Menu.Pred.PredQ:Value()+1 then
-					Control.CastSpell(HK_Q, pred.CastPosition)
-				end
-			elseif Menu.Pred.Change:Value() == 2 then
-				local pred = _G.PremiumPrediction:GetPrediction(myHero, target, spellData)
-				if pred.CastPos and ConvertToHitChance(Menu.Pred.PredQ:Value(), pred.HitChance) then
-					Control.CastSpell(HK_Q, pred.CastPos)
-				end
-			else
-				CastQGGPred(target)
-			end
+			CastQGGPred(target)
+
         end
 	end
 end
 
-function Clear()
+--[[ function Clear()
 	for i = 1, GameMinionCount() do
 	local minion = GameMinion(i)
 		if minion.team == TEAM_ENEMY and IsValid(minion) then
@@ -1033,7 +958,7 @@ function Clear()
 			end
 		end
 	end
-end
+end ]]
 
 function JClear()
 	for i = 1, GameMinionCount() do
@@ -1075,11 +1000,11 @@ function JClear()
 	end
 end
 
-function KsE()
+--[[ function KsE()
 local target = GetTarget(700)
 if target == nil then return end
 	if IsValid(target) then
-		local EDmg = getdmg("E", target, myHero) * 2
+		local EDmg = getdmg("E", target, myHero)
 		local PEDmg = getdmg("E", target, myHero)
 
 		if Menu.ks.E:Value() and Ready(_E) then
@@ -1093,8 +1018,8 @@ if target == nil then return end
 			end
 		end
 	end
-end
-
+end ]]
+--[[ 
 function KsQ()
 local target = GetTarget(900)
 if target == nil then return end
@@ -1103,43 +1028,19 @@ if target == nil then return end
 		if Menu.ks.Q:Value() and Ready(_Q) then
 			local QDmg = getdmg("Q", target, myHero)
 			if QDmg > target.health then
-				if Menu.Pred.Change:Value() == 1 then
-					local pred = GetGamsteronPrediction(target, QData, myHero)
-					if pred.Hitchance >= Menu.Pred.PredQ:Value()+1 then
-						Control.CastSpell(HK_Q, pred.CastPosition)
-					end
-				elseif Menu.Pred.Change:Value() == 2 then
-					local pred = _G.PremiumPrediction:GetPrediction(myHero, target, spellData)
-					if pred.CastPos and ConvertToHitChance(Menu.Pred.PredQ:Value(), pred.HitChance) then
-						Control.CastSpell(HK_Q, pred.CastPos)
-					end
-				else
-					CastQGGPred(target)
-				end
+			CastQGGPred(target)
+
 			end
 		end
 	end
 end
-
-function KsW()
-local target = GetTarget(700)
-if target == nil then return end
-
-	if IsValid(target) then
-		if Menu.ks.W:Value() and Ready(_W) then
-			local WDmg = getdmg("W", target, myHero)
-			if WDmg > target.health then
-				Control.CastSpell(HK_W, target.pos)
-			end
-		end
-	end
-end
+ ]]
 
 function AutoE()
 	local edmg = EdmgCreep()
 	local pedmg =PEdmgCreep()
 	local mana_ok = myHero.mana/myHero.maxMana >= Menu.mana.EW:Value() / 100
-	if Menu.clear.E:Value() and mana_ok and Ready(_E) then
+	if Menu.EAA:Value() and mana_ok and Ready(_E) then
 		local minions = _G.SDK.ObjectManager:GetEnemyMinions(ERange) 
 		for i = 1, #minions do
 			local minion = minions[i]
@@ -1166,7 +1067,7 @@ function AutoE()
 end
 
 function CastQGGPred(unit)
-	local QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_CIRCLE, Delay = 0.65, Radius = 80, Range = 900, Speed = MathHuge, Collision = false})
+	local QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_CIRCLE, Delay = 0.65, Radius = 135, Range = 850, Speed = MathHuge, Collision = false})
 	QPrediction:GetPrediction(unit, myHero)
 	if QPrediction:CanHit(Menu.Pred.PredQ:Value()+1) then
 		result = Control.CastSpell(HK_Q, QPrediction.CastPosition)

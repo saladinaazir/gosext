@@ -3,7 +3,7 @@ local Heroes = {"Irelia"}
 if not table.contains(Heroes, myHero.charName) then return end
 
 require "DamageLib"
-
+require "GGPrediction"
 
 ----------------------------------------------------
 --|                    Checks                    |--

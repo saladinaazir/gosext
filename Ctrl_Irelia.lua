@@ -914,8 +914,8 @@ function Irelia:LoadMenu()
 
 
 	self.Menu.ComboSet:MenuElement({type = MENU, id = "Ninja", name = "Ninja Mode"})
-	self.Menu.ComboSet.Ninja:MenuElement({id = "UseQ", name = "Q on all Marked Enemys", key = 0x63, value = true, toggle = true})
-
+	self.Menu.ComboSet.Ninja:MenuElement({id = "UseQ", name = "Q other Marked Enemies first", key = 0x63, value = true, toggle = true})
+	self.Menu.ComboSet.Ninja:MenuElement({name = " ", drop = {"there's priority+range logic here just turn on and brain off"}})	
     self.Menu:MenuElement({type = MENU, id = "QSet", name = "Q Key"})
 	self.Menu.QSet:MenuElement({name = " ", drop = {"Uses GGorb's flee key, Default Hotkey = [A]"}})	
 	self.Menu.QSet:MenuElement({name = " ", drop = {"hold this key to Q to killable minions/marked champs near mouse"}})	

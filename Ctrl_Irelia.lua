@@ -904,7 +904,7 @@ function Irelia:LoadMenu()
 	self.Menu.ComboSet.Combo:MenuElement({id = "UseR", name = "[R]Single Target if almost killable", value = false})
 	self.Menu.ComboSet.Combo:MenuElement({id = "UseRCount", name = "Auto[R] Multiple Enemys", value = true})	
 	self.Menu.ComboSet.Combo:MenuElement({id = "RCount", name = "Multiple Enemys", value = 2, min = 2, max = 5, step = 1})
-	self.Menu.ComboSet.Combo:MenuElement({id = "Gap", name = "Gapclose [Q]", value = false})
+	self.Menu.ComboSet.Combo:MenuElement({id = "Gap", name = "Gapclose [Q] (recommend using Q key instead) ", value = false})
 	self.Menu.ComboSet.Combo:MenuElement({id = "Stack", name = "Stack Passive near Target/Minion", value = true})		
 	
 	--BurstModeMenu
@@ -918,34 +918,14 @@ function Irelia:LoadMenu()
 	self.Menu.ComboSet:MenuElement({type = MENU, id = "Ninja", name = "Ninja Mode"})
 	self.Menu.ComboSet.Ninja:MenuElement({id = "UseQ", name = "Q on all Marked Enemys", key = 0x63, value = true, toggle = true})
 
-    self.Menu:MenuElement({type = MENU, id = "ClearSet", name = "Clear Settings"})
+    self.Menu:MenuElement({type = MENU, id = "QSet", name = "Q Key"})
+	self.Menu.QSet:MenuElement({name = " ", drop = {"Uses GGorb's flee key, Default Hotkey = [A]"}})	
+	self.Menu.QSet:MenuElement({name = " ", drop = {"hold this key to Q to killable minions/marked champs near mouse"}})	
+	self.Menu.QSet:MenuElement({name = " ", drop = {"will E1 while dashing if holding combo as well to suprise opponent"}})	
+	self.Menu.QSet:MenuElement({id = "Q", name = "[Q]", value = true})	
 
-	--LaneClear Menu
-	self.Menu.ClearSet:MenuElement({type = MENU, id = "Clear", name = "Clear Mode"})
-	self.Menu.ClearSet.Clear:MenuElement({type = MENU, id = "Last", name = "LastHit"})	
-	self.Menu.ClearSet.Clear.Last:MenuElement({id = "UseQ", name = "LastHit[Q]", value = false})
-	self.Menu.ClearSet.Clear:MenuElement({id = "Mana", name = "Min Mana", value = 40, min = 0, max = 100, identifier = "%"})
-	
-	--JungleClear Menu
-	self.Menu.ClearSet:MenuElement({type = MENU, id = "JClear", name = "JungleClear Mode"})
-	self.Menu.ClearSet.JClear:MenuElement({id = "UseQ", name = "LastHit[Q]", value = true})	
-	self.Menu.ClearSet.JClear:MenuElement({id = "UseW", name = "[W]", value = false})
-	self.Menu.ClearSet.JClear:MenuElement({id = "Mana", name = "Min Mana", value = 40, min = 0, max = 100, identifier = "%"})
-
-	--LastHitMode Menu
-	self.Menu.ClearSet:MenuElement({type = MENU, id = "LastHit", name = "LastHit Mode"})	
-	self.Menu.ClearSet.LastHit:MenuElement({id = "UseQ", name = "LastHit[Q]", value = true})		
-	self.Menu.ClearSet.LastHit:MenuElement({id = "Mana", name = "Min Mana", value = 40, min = 0, max = 100, identifier = "%"})	
-	self.Menu.ClearSet.LastHit:MenuElement({id = "Active", name = "LastHit Key", key = string.byte("X")})
 		
     self.Menu:MenuElement({type = MENU, id = "MiscSet", name = "Misc Settings"})
-
-	self.Menu.MiscSet:MenuElement({type = MENU, id = "Flee", name = "Flee Mode"})
-	self.Menu.MiscSet.Flee:MenuElement({name = " ", drop = {"Default Hotkey = [A]"}})	
-	self.Menu.MiscSet.Flee:MenuElement({id = "Q", name = "[Q]", value = true})	
-	self.Menu.MiscSet.Flee:MenuElement({id = "Qcombo", name = "q to minions in combo", value = false,key=string.byte("A")})	
-	self.Menu.MiscSet.Flee:MenuElement({id = "Q2", name = "[Q] even on non killable Minions", value = false})		
-
 	self.Menu.MiscSet:MenuElement({type = MENU, id = "Rrange", name = "Ultimate Range setting"})
 	self.Menu.MiscSet.Rrange:MenuElement({id = "R", name = "Max Cast range [R]", value = 850, min = 0, max = 950, step = 10})
 	
@@ -1048,16 +1028,9 @@ function Irelia:Tick()
 			if not self.Menu.ComboSet.Burst.StartB:Value() then
 				self:Combo()
 			end				
-		elseif Mode == "LaneClear" then
-			self:JungleClear()
-			self:Clear()
-		elseif Mode == "LastHit" then
-				if self.Menu.ClearSet.LastHit.Active:Value() then
-				self:LastHit()	
-			end
 		end
 	
-	if self.Menu.MiscSet.Flee.Qcombo:Value()==true then
+	if _G.SDK.Menu.Orbwalker.Keys.Combo:Value() then
 		self:Flee()
 	end
 	local target = GetTarget(1000)     	
@@ -1239,58 +1212,57 @@ end
 
 
 
-local function GetKillableMinion()
-	if Ready(_Q) then	
-		local Minions = GetMinions(600, 1)
-		local qmindmg = MinionQdmg()
-		local closesttarget=nil
-		local closesdist=600	
-		if #Minions>0 then
-			local QDmg = qmindmg + CalcExtraDmg(Minions[1], 1)
-			for i = 1, #Minions do
-				local minion = Minions[i]			
-				if (minion.team == TEAM_ENEMY) and GetDistance(minion.pos, mousePos) < closesdist  and QDmg > minion.health and IsValid(minion) then
+local function GetKillableMinion()	
+	local Minions = GetMinions(600, 1)
+	local qmindmg = MinionQdmg()
+	local closesttarget=nil
+	local closesdist=600	
+	if #Minions>0 then
+		local QDmg = qmindmg + CalcExtraDmg(Minions[1], 1)
+		for i = 1, #Minions do
+			local minion = Minions[i]			
+			if (minion.team == TEAM_ENEMY) and GetDistance(minion.pos, mousePos) < closesdist  and QDmg > minion.health and IsValid(minion) then
+				closesttarget=minion
+				closesdist=GetDistance(minion.pos, mousePos)
+			elseif (minion.team == TEAM_JUNGLE) and IsValid(minion) and GetDistance(minion.pos, mousePos) < closesdist then
+				local QDmg2 = HeroQdmg(minion) + CalcExtraDmg2()+ CalcExtraDmg3(minion)
+				if QDmg2 > minion.health then
 					closesttarget=minion
 					closesdist=GetDistance(minion.pos, mousePos)
-				elseif (minion.team == TEAM_JUNGLE) and IsValid(minion) and GetDistance(minion.pos, mousePos) < closesdist then
-					local QDmg2 = HeroQdmg(minion) + CalcExtraDmg2()+ CalcExtraDmg3(minion)
-					if QDmg2 > minion.health then
-						closesttarget=minion
-						closesdist=GetDistance(minion.pos, mousePos)
-					end
-				end
-			end	
-		end
-		if closesttarget then
-			KillMinion=closesttarget
-			return
-		else
-			local Heroes=_G.SDK.ObjectManager:GetEnemyHeroes(600)	
-			local closeshero=nil
-			local closesherodist=600
-			for i=1, #Heroes do
-				local hero=Heroes[i]
-				if IsValid(hero) and GetDistance(hero.pos, mousePos)<closesherodist and HasBuff(hero,"ireliamark") then		
-					closeshero=hero
-					closesherodist=GetDistance(hero.pos, mousePos)
 				end
 			end
-			if closeshero then
-				KillMinion=closeshero
+		end	
+	end
+	if closesttarget then
+		KillMinion=closesttarget
+		return
+	else
+		local Heroes=_G.SDK.ObjectManager:GetEnemyHeroes(600)	
+		local closeshero=nil
+		local closesherodist=600
+		for i=1, #Heroes do
+			local hero=Heroes[i]
+			if IsValid(hero) and GetDistance(hero.pos, mousePos)<closesherodist and HasBuff(hero,"ireliamark") then		
+				closeshero=hero
+				closesherodist=GetDistance(hero.pos, mousePos)
+			end
+		end
+		if closeshero then
+			KillMinion=closeshero
+			return
+		end
+	end
+	local Minions = GetMinions(600, 3)
+	for i = 1, #Minions do
+		local minion = Minions[i]
+		if (minion.team == TEAM_JUNGLE) then
+			if IsValid(minion) and HasBuff(minion, "ireliamark") then				
+				KillMinion = minion
 				return
 			end
 		end
-		local Minions = GetMinions(600, 3)
-		for i = 1, #Minions do
-			local minion = Minions[i]
-			if (minion.team == TEAM_JUNGLE) then
-				if IsValid(minion) and HasBuff(minion, "ireliamark") then				
-					KillMinion = minion
-					return
-				end
-			end
-		end
 	end
+
 end
 
 local function locate( table, value )
@@ -1358,7 +1330,7 @@ end
 lasteflee=0
 function Irelia:Flee()
 		mode=GetMode()
-	if self.Menu.MiscSet.Flee.Q:Value() and Ready(_Q) then
+	if self.Menu.QSet.Q:Value() and Ready(_Q) then
 		if KillMinion and GetDistance(KillMinion.pos, mousePos) < 200 then
 				
 					Control.CastSpell(HK_Q,KillMinion)	
@@ -1450,7 +1422,7 @@ local target1 = GetTarget(1000)
 end
 
 function Irelia:Combo()
-	if self.Menu.MiscSet.Flee.Qcombo:Value()==true then
+	if _G.SDK.Menu.Orbwalker.Keys.Combo:Value() then
 		self:Flee()
 	end
 local target = GetTarget(1000)     	
@@ -1526,56 +1498,31 @@ end
 function Irelia:FastE()
 	local target = GetTarget(775)     	
 	if target == nil then return end 
-		if IsValid(target) then
-			if Ready(_E) and myHero:GetSpellData(_E).name == "IreliaE" then
-				local QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_LINE, Delay = 0.3, Radius = 62, Range = 830, Speed = 2001, Collision = false})
+	if IsValid(target) then
+		if Ready(_E) and myHero:GetSpellData(_E).name == "IreliaE" then
+			local QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_LINE, Delay = 0.3, Radius = 62, Range = 830, Speed = 2001, Collision = false})
+			QPrediction:GetPrediction(target, myHero)
+			if QPrediction:CanHit(self.Menu.MiscSet.Pred.PredE:Value()+1)and not cantkill(target,false,true,false) then --and not (myHero.pathing and myHero.pathing.isDashing) then				
+				Epos = QPrediction.CastPosition + (myHero.pos - QPrediction.CastPosition): Normalized() * -200
+				if not Epos:To2D().onScreen then return end
+				Control.CastSpell(HK_E, Epos)
+			end
+		end
+		if myHero:GetSpellData(_E).name == "IreliaE2" then
+			if myHero.pos:DistanceTo(target.pos) > 450 then
+				Control.CastSpell(HK_E, myHero.pos)
+			else
+				local QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_LINE, Delay = 0.3, Radius = 62, Range = 835, Speed = 2001, Collision = false})
 				QPrediction:GetPrediction(target, myHero)
 				if QPrediction:CanHit(self.Menu.MiscSet.Pred.PredE:Value()+1)and not cantkill(target,false,true,false) then --and not (myHero.pathing and myHero.pathing.isDashing) then
-		
-				
-					Epos = QPrediction.CastPosition + (myHero.pos - QPrediction.CastPosition): Normalized() * -200
-					if not Epos:To2D().onScreen then return end
+					Epos = QPrediction.CastPosition + (endp - QPrediction.CastPosition): Normalized() * -300
 					Control.CastSpell(HK_E, Epos)
 				end
 			end
-			if myHero:GetSpellData(_E).name == "IreliaE2" then
-				if myHero.pos:DistanceTo(target.pos) > 450 then
-					Control.CastSpell(HK_E, myHero.pos)
-				else
-					local QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_LINE, Delay = 0.3, Radius = 62, Range = 835, Speed = 2001, Collision = false})
-					QPrediction:GetPrediction(target, myHero)
-					if QPrediction:CanHit(self.Menu.MiscSet.Pred.PredE:Value()+1)and not cantkill(target,false,true,false) then --and not (myHero.pathing and myHero.pathing.isDashing) then
-						Epos = QPrediction.CastPosition + (endp - QPrediction.CastPosition): Normalized() * -300
-						Control.CastSpell(HK_E, Epos)
-					end
-				end
-			end
-		end	
-	end
-
-	function Irelia:LastHit()
-	local qmindmg = MinionQdmg()
-	for i = 1, GameMinionCount() do
-		local minion = GameMinion(i)
-		if minion.team == TEAM_ENEMY and IsValid(minion) then         
-			if self.Menu.ClearSet.LastHit.UseQ:Value() and myHero.mana/myHero.maxMana >= self.Menu.ClearSet.LastHit.Mana:Value() / 100 and myHero.pos:DistanceTo(minion.pos) <= 600 and Ready(_Q) then
-			local QDmg = qmindmg + CalcExtraDmg(minion)
-
-				if not IsUnderTurret(minion) then	
-					if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) then
-						Control.CastSpell(HK_Q, minion)						
-					end	
-				else  
-					if AllyMinionUnderTower() then
-						if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) then
-							Control.CastSpell(HK_Q, minion)
-						end
-					end	
-				end	
-			end
 		end
-	end
-end	
+	end	
+end
+
 
 function Irelia:StackPassive(target)
 if myHero.hudAmmo==4 then return end	
@@ -1594,52 +1541,6 @@ if myHero.hudAmmo==4 then return end
 	end
 end	
 
-
-function Irelia:JungleClear()
-	for i = 1, GameMinionCount() do
-    local minion = GameMinion(i)
-
-		if minion.team == TEAM_JUNGLE and IsValid(minion) then
- 			
-			if myHero.pos:DistanceTo(minion.pos) <= 825 and self.Menu.ClearSet.JClear.UseW:Value() and Ready(_W) and myHero.mana/myHero.maxMana >= self.Menu.ClearSet.JClear.Mana:Value() / 100 then
-				Control.CastSpell(HK_W, minion.pos)                  
-            end           
-			
-			if myHero.pos:DistanceTo(minion.pos) <= 600 and self.Menu.ClearSet.JClear.UseQ:Value() and myHero.mana/myHero.maxMana >= self.Menu.ClearSet.JClear.Mana:Value() / 100 and Ready(_Q) then
-			local QDmg = HeroQdmg(minion) + CalcExtraDmg(minion)
-				if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) then
-
-					Control.CastSpell(HK_Q, minion)
-				end	
-			end	
-        end
-    end
-end
-
-function Irelia:Clear()
-	for i = 1, GameMinionCount() do
-    local minion = GameMinion(i)
-    local qmindmg = MinionQdmg()
-		if minion.team == TEAM_ENEMY and IsValid(minion) then
-      
-			if myHero.pos:DistanceTo(minion.pos) <= 600 and self.Menu.ClearSet.Clear.Last.UseQ:Value() and myHero.mana/myHero.maxMana >= self.Menu.ClearSet.Clear.Mana:Value() / 100 and Ready(_Q) then
-			local QDmg = qmindmg + CalcExtraDmg(minion)
-				if not IsUnderTurret(minion) then	
-					if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) then
-
-						Control.CastSpell(HK_Q, minion)
-					end	
-				end	
-
-				if IsUnderTurret(minion) and AllyMinionUnderTower() then
-					if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) then
-						Control.CastSpell(HK_Q, minion)
-					end
-				end				
-			end
-        end
-    end
-end
 
 function Irelia:CastQMinion(target)
 	for i = 1, GameMinionCount() do
@@ -1925,19 +1826,14 @@ function Irelia:Draw()
     DrawCircle(myHero, 825, 1, DrawColor(225, 225, 125, 10))
 	end
 	if self.Menu.MiscSet.Drawing.DrawKM:Value() and Ready(_Q) then
-	
 		if (lastdkm+.3)<Game.Timer() then
 		DrawKillableMinion()
-		end
-		
+		end	
 		if (lastkdelete+2)<Game.Timer() then
 			KillMinion = nil
 			lastkdelete=Game.Timer()
-		end
-		
+		end		
 		DrawKillableMinion2()
-		
-
 	end
 	
 

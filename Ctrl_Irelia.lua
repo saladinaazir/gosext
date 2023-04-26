@@ -887,9 +887,7 @@ end
 
 function Irelia:LoadMenu()                     	
 --MainMenu
-    self.Menu = MenuElement({type = MENU, id = "Irelia", name = "CtrlIrelia"})
-    self.Menu:MenuElement({name = " ", drop = {"Version 0.29"}})
-
+    self.Menu = MenuElement({type = MENU, id = "Irelia2", name = "CtrlIrelia"})
     self.Menu:MenuElement({type = MENU, id = "ComboSet", name = "Combo Settings"})
 	
 	--ComboMenu  
@@ -1342,7 +1340,7 @@ function Irelia:Flee()
 							Control.CastSpell(HK_E,KillMinione)
 							lasteflee=Game.Timer()
 							KillMinione=nil						
-							print("test2")
+						--	print("test2")
 							--return
 						end	
 					end,0.04)		
@@ -1361,7 +1359,7 @@ function Irelia:Flee()
 							Control.CastSpell(HK_E,KillMinione)
 							lasteflee=Game.Timer()
 							KillMinione=nil
-							print("test2")
+						--	print("test2")
 							--return
 						end	
 					end,0.04)
@@ -1414,7 +1412,6 @@ local target1 = GetTarget(1000)
 			Control.CastSpell(HK_Q, target2)
  			if Ready(_E) and #nearbyenmies==1 and myHero:GetSpellData(_E).name ~= "IreliaE2" then	
 				_G.SDK.Cursor.Step=0
-				print("dsfsdf")
 				Control.CastSpell(HK_E, target2.pos)
 			end 
 		end
@@ -1689,13 +1686,15 @@ function Irelia:CastE(unit)
 		Control.CastSpell(HK_E, myHero.pos)
 		end
 	end
+	if myHero:GetSpellData(_R).cd==0 and myHero:GetSpellData(_R).level>0 then
+		print("if E2 isn't working, it's known practice tool autorefresh cds bug, use R first to test")
+	end 
     if myHero:GetSpellData(_E).name == "IreliaE2" and self.Menu.ComboSet.Combo.FastE:Value()==false and (HasBuff(unit, "ireliamark")==false or myHero:GetSpellData(_Q).currentCd>1) then
 		local QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_LINE, Delay = 0.3, Radius = 62, Range = 835, Speed = 2001, Collision = false})
 				  QPrediction:GetPrediction(unit, myHero)
-				  print(myHero:GetSpellData(_R).cd- myHero:GetSpellData(_R).currentCd)
+
 
 			if QPrediction:CanHit(self.Menu.MiscSet.Pred.PredE:Value()+1)and not cantkill(unit,false,true,false) and not (myHero.activeSpell and myHero.activeSpell.valid and myHero.activeSpell.name == "IreliaR") and (myHero.levelData.lvl<6 or myHero:GetSpellData(_R).cd- myHero:GetSpellData(_R).currentCd>1) then --and not (myHero.pathing and myHero.pathing.isDashing) then
-				print(Game.Timer())
 			
 				Epos = QPrediction.CastPosition + (endp - QPrediction.CastPosition): Normalized() * -150
 				if myHero.pos:DistanceTo(Epos)>876 then

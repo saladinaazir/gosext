@@ -568,42 +568,52 @@ end
 
 function CalcExtraDmg3(unit)
 	local total = 0	
-	if BladeKing then		
-		if unit.health*0.12 > 60 then
-			total = total + 60
-		else	
-			total = total + unit.health*0.12
+	local magictotal=0
+	local physicaltotal=0
+	if BladeKing then	
+		borkdmg= unit.health*0.12	
+		if borkdmg > 60 then
+			physicaltotal = physicaltotal + 60
+		elseif borkdmg > 15 then	
+			physicaltotal = physicaltotal + unit.health*0.12
+		else
+			physicaltotal = physicaltotal + 15
 		end
 	end	
+	local Passive = myHero.hudAmmo==4
+	local LvL= myHero.levelData.lvl
+	if Passive then
+		magictotal = magictotal +  (7+ (3 * LvL)) + 0.20 * myHero.bonusDamage
+	end
+
 	if Divine and myHero:GetSpellData(Divine).currentCd == 0 then  
-	
-		if unit.maxHealth*0.1 < 1.5*myHero.baseDamage then
-			total = total + 1.5*myHero.baseDamage
+		local divinedmg = myHero.baseDamage*1.25+unit.maxHealth*0.06
+		if divinedmg < 1.5*myHero.baseDamage then
+			physicaltotal = physicaltotal + 1.5*myHero.baseDamage
 		else
-			if unit.maxHealth*0.1 > 2.5*myHero.baseDamage then
-				total = total + 2.5*myHero.baseDamage
+			if divinedmg > 2.5*myHero.baseDamage then
+				physicaltotal = physicaltotal + 2.5*myHero.baseDamage
 			else
-				total = total +  unit.maxHealth*0.1
+				physicaltotal = physicaltotal + divinedmg
 			end
 		end	
 	end	
+	if magictotal>0 then
+		total = total + CalcMagicalDamage(myHero, unit, magictotal)
+	end
+	if physicaltotal>0  then
+		total = total + CalcPhysicalDamage(myHero, unit, physicaltotal)
+	end
 	return total		
 end
 
 
 function CalcExtraDmg2()
 	local total = 0	
-	local Passive = myHero.hudAmmo==4
 	local LvL= myHero.levelData.lvl
-	if Passive then
-		total = total +  (7+ (3 * LvL)) + 0.20 * myHero.bonusDamage
-	end
-
 	if WitsEnd  then
 		total = total +  15 + (4.44 * LvL)
 	end
-
-	
 	if Titanic and myHero:GetSpellData(Titanic).currentCd == 0 then
 		total = total +(myHero.maxHealth*0.01) + (5+myHero.maxHealth*0.015)
 	end	
@@ -621,58 +631,58 @@ function CalcExtraDmg(unit, typ) -- typ 1 = minion / typ 2 = Enemy
 	Passive = myHero.hudAmmo==4
 	local LvL= myHero.levelData.lvl
 	local magictotal=0
-	local phystotal=0
+	local physicaltotal=0
 	local total=0
 	if typ== 1 then 
 		if Passive then
 			total = total +  (7+ (3 * LvL)) + 0.20 * myHero.bonusDamage
 		end
 	
-		if BladeKing then
-			if unit.health*0.1 > 40 then
-				total = total + 40
-			else	
-				total = total + (unit.health*0.1)
+		if BladeKing then	
+			borkdmg= unit.health*0.12	
+			if borkdmg > 60 then
+				physicaltotal = physicaltotal + 60
+			elseif borkdmg > 15 then	
+				physicaltotal = physicaltotal + unit.health*0.12
+			else
+				physicaltotal = physicaltotal + 15
 			end
-
-			
 		end
 			
 		if Divine and myHero:GetSpellData(Divine).currentCd == 0 then  
-
-			if unit.maxHealth*0.1 < 1.5*myHero.baseDamage then
-				total = total +  1.5*myHero.baseDamage
+			local divinedmg = myHero.baseDamage*1.25+unit.maxHealth*0.06
+			if divinedmg < 1.5*myHero.baseDamage then
+				physicaltotal = physicaltotal + 1.5*myHero.baseDamage
 			else
-				if unit.maxHealth*0.1 > 2.5*myHero.baseDamage then
-					total = total + 2.5*myHero.baseDamage
+				if divinedmg > 2.5*myHero.baseDamage then
+					physicaltotal = physicaltotal + 2.5*myHero.baseDamage
 				else
-					total = total + unit.maxHealth*0.1
+					physicaltotal = physicaltotal + divinedmg
 				end
-			end
-
+			end	
 		end		
 
 		
 		if WitsEnd then
-			total = total +  15 + (4.44 * LvL)
+			magictotal = magictotal +  15 + (4.44 * LvL)
 		end
 
 		if RecurveBow then
-			total = total + 15
+			physicaltotal = physicaltotal + 15
 		end	
 		
 		if Titanic and myHero:GetSpellData(Titanic).currentCd == 0 then
-			total = total + (myHero.maxHealth*0.01) + (5+myHero.maxHealth*0.015)
+			physicaltotal = physicaltotal + (myHero.maxHealth*0.01) + (5+myHero.maxHealth*0.015)
 		end	
 
 		if Sheen and myHero:GetSpellData(Sheen).currentCd == 0 then 
-			total = total +  myHero.baseDamage
+			physicaltotal = physicaltotal +  myHero.baseDamage
 		end	
 
 
 
 		if Trinity and myHero:GetSpellData(Trinity).currentCd == 0 then 		
-			total = total +  2*myHero.baseDamage
+			physicaltotal = physicaltotal +  2*myHero.baseDamage
 		end
 
 	else
@@ -683,12 +693,12 @@ function CalcExtraDmg(unit, typ) -- typ 1 = minion / typ 2 = Enemy
 		if BladeKing then
 			if typ == 1 then
 				if unit.health*0.12 > 60 then
-					phystotal = phystotal +  60
+					physicaltotal = physicaltotal +  60
 				else	
-					phystotal = phystotal + (unit.health*0.12)
+					physicaltotal = physicaltotal + (unit.health*0.12)
 				end
 			else
-				phystotal = phystotal + (unit.health*0.12) + (HasBuff(myHero, "3153speed") and CalcMagicalDamage(myHero, unit, 40+6.47*LvL) or 0)
+				physicaltotal = physicaltotal + (unit.health*0.12) + (HasBuff(myHero, "3153speed") and CalcMagicalDamage(myHero, unit, 40+6.47*LvL) or 0)
 			end
 		end
 		
@@ -697,33 +707,33 @@ function CalcExtraDmg(unit, typ) -- typ 1 = minion / typ 2 = Enemy
 		end
 
 		if RecurveBow  then
-			phystotal = phystotal +  15
+			physicaltotal = physicaltotal +  15
 		end	
 		
 		if Titanic then
-			phystotal = phystotal +  (myHero.maxHealth*0.01) + (5+myHero.maxHealth*0.015)
+			physicaltotal = physicaltotal +  (myHero.maxHealth*0.01) + (5+myHero.maxHealth*0.015)
 		end	
 
 		if Sheen and myHero:GetSpellData(Sheen).currentCd == 0 then 
-			phystotal = phystotal +  myHero.baseDamage
+			physicaltotal = physicaltotal +  myHero.baseDamage
 		end	
 
 		if Divine and myHero:GetSpellData(Divine).currentCd == 0 then  
 			if typ == 1 then
 				if unit.maxHealth*0.1 < 1.5*myHero.baseDamage then
-					phystotal = phystotal +  1.5*myHero.baseDamage
+					physicaltotal = physicaltotal +  1.5*myHero.baseDamage
 				else
 					if unit.maxHealth*0.1 > 2.5*myHero.baseDamage then
-						phystotal = phystotal +  2.5*myHero.baseDamage
+						physicaltotal = physicaltotal +  2.5*myHero.baseDamage
 					else
-						phystotal = phystotal + unit.maxHealth*0.1
+						physicaltotal = physicaltotal + unit.maxHealth*0.1
 					end
 				end
 			else
 				if unit.maxHealth*0.1 < 1.5*myHero.baseDamage then
-					phystotal = phystotal + 1.5*myHero.baseDamage
+					physicaltotal = physicaltotal + 1.5*myHero.baseDamage
 				else
-					phystotal = phystotal +  unit.maxHealth*0.1
+					physicaltotal = physicaltotal +  unit.maxHealth*0.1
 				end
 			end
 		end	
@@ -731,19 +741,24 @@ function CalcExtraDmg(unit, typ) -- typ 1 = minion / typ 2 = Enemy
 		if typ == 2 and Black then 
 			local Buff = GetBuffData(unit, "3071blackcleavermainbuff")
 			if Buff.count == 6 then
-				phystotal = phystotal + (unit.maxHealth-unit.health)*0.05
+				physicaltotal = physicaltotal + (unit.maxHealth-unit.health)*0.05
 			end	
 		end
 
 		if Trinity and myHero:GetSpellData(Trinity).currentCd == 0 then 		
-			phystotal = phystotal +  2*myHero.baseDamage
+			physicaltotal = physicaltotal +  2*myHero.baseDamage
 		end
 
 		if typ == 2 and Eclipse and myHero:GetSpellData(Eclipse).currentCd > 6.5 then 
-			phystotal = phystotal +  unit.maxHealth*0.06
+			physicaltotal = physicaltotal +  unit.maxHealth*0.06
 		end	
 	end
-	total = total + CalcPhysicalDamage(myHero, unit, phystotal) + CalcMagicalDamage(myHero, unit, magictotal)
+	if magictotal>0  then
+		total = total + CalcMagicalDamage(myHero, unit, magictotal)
+	end
+	if physicaltotal>0  then
+		total = total + CalcPhysicalDamage(myHero, unit, physicaltotal)
+	end
 	return total			
 end
 
@@ -875,9 +890,9 @@ local function cantkill(unit,kill,ss,aa)
 	if HasBuffType(unit, 4) and ss then
 		return true
 	end
-	--if HasBuffType(myHero, 26) and aa then
-		--return true
-	--end
+--	if HasBuffType(myHero, 26) and aa then
+	--	return true
+	
 	
 	
 	return false
@@ -902,7 +917,7 @@ function Irelia:LoadMenu()
 	self.Menu.ComboSet.Combo:MenuElement({id = "UseR", name = "[R]Single Target if almost killable", value = false})
 	self.Menu.ComboSet.Combo:MenuElement({id = "UseRCount", name = "Auto[R] Multiple Enemys", value = true})	
 	self.Menu.ComboSet.Combo:MenuElement({id = "RCount", name = "Multiple Enemys", value = 2, min = 2, max = 5, step = 1})
-	self.Menu.ComboSet.Combo:MenuElement({id = "Gap", name = "Gapclose [Q] (recommend using Q key instead) ", value = false})
+	self.Menu.ComboSet.Combo:MenuElement({id = "Gap", name = "Gapclose [Q] (recommend using flee key instead) ", value = false})
 	self.Menu.ComboSet.Combo:MenuElement({id = "Stack", name = "Stack Passive near Target/Minion", value = true})		
 	
 	--BurstModeMenu
@@ -911,6 +926,7 @@ function Irelia:LoadMenu()
 	self.Menu.ComboSet.Burst:MenuElement({id = "StartB", name = "Use Burst Mode", key = 0x62, value = true, toggle = true})
     self.Menu.ComboSet.Burst:MenuElement({id = "UseRCount", name = "Auto[R] Multiple Enemys", value = true})	
 	self.Menu.ComboSet.Burst:MenuElement({id = "RCount", name = "Multiple Enemys", value = 2, min = 2, max = 5, step = 1})	
+	self.Menu.ComboSet.Burst:MenuElement({id = "Gap", name = "Gapclose [Q] (recommend using flee key instead) ", value = false})
 
 
 	self.Menu.ComboSet:MenuElement({type = MENU, id = "Ninja", name = "Ninja Mode"})
@@ -1013,13 +1029,10 @@ function Irelia:Tick()
 	end
 
 	local Mode = GetMode()
-		if Mode == "Flee" then
-			self:Flee()
-		end
+	if _G.SDK.Menu.Orbwalker.Keys.Flee:Value() then
+		self:Flee()
+	end
 		if Mode == "Combo" then
-			if self.Menu.ComboSet.Ninja.UseQ:Value() and Ready(_Q) then
-				self:Ninja()
-			end	
 			if self.Menu.ComboSet.Burst.StartB:Value() and myHero.levelData.lvl < 6 then
 				self:Combo()
 			end
@@ -1028,9 +1041,7 @@ function Irelia:Tick()
 			end				
 		end
 	
-	if _G.SDK.Menu.Orbwalker.Keys.Combo:Value() then
-		self:Flee()
-	end
+
 	local target = GetTarget(1000)     	
 	if target == {} then return end
 	
@@ -1073,7 +1084,7 @@ function Irelia:Tick()
 				self:CastR(target,true,self.Menu.ComboSet.Burst.RCount:Value())
 			end
 		end	
-	
+
 		if myHero.pos:DistanceTo(target.pos) <= 835 and myHero:GetSpellData(_E).toggleState == 0 and not HasBuff(target, "ireliamark") and self.Menu.ComboSet.Combo.FastE:Value()==false then
 			local QPrediction = GGPrediction:SpellPrediction({Type = GGPrediction.SPELLTYPE_LINE, Delay = 0.3, Radius = 62, Range = 835, Speed = 2001, Collision = false})
 				  QPrediction:GetPrediction(target, myHero)
@@ -1112,8 +1123,17 @@ function Irelia:Tick()
 				Control.CastSpell(HK_E, myHero.pos)
 			end
 		end
-		
-		if myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) and HasBuff(target, "ireliamark") and not cantkill(target,false,true,true) then
+		if myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) then			 
+			local QDmg = HeroQdmg(target) + CalcExtraDmg(target)
+			if (QDmg >= target.health+target.shieldAD and CheckHPPred(target) >= 1) and IsValid(target) and not cantkill(target,true,true,true) then
+				Control.CastSpell(HK_Q, target)	
+			end
+		end	
+		ninjatarget=false
+		if self.Menu.ComboSet.Ninja.UseQ:Value() and Ready(_Q) then
+			ninjatarget= self:Ninja()
+		end	
+		if myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) and (myHero.pos:DistanceTo(target.pos) >= myHero.range + 100 or myHero.attackData.state==STATE_WINDDOWN)  and HasBuff(target, "ireliamark") and not cantkill(target,false,true,true) then
 			if CheckHPPred(target) >= 1 and IsValid(target) then
 				Control.CastSpell(HK_Q, target)	
 			end	
@@ -1124,12 +1144,7 @@ function Irelia:Tick()
 	--	end
 	
 
-		if myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) then			 
-			local QDmg = HeroQdmg(target) + CalcExtraDmg(target)
-			if (QDmg >= target.health and CheckHPPred(target) >= 1) and IsValid(target) and not cantkill(target,true,true,true) then
-				Control.CastSpell(HK_Q, target)	
-			end
-		end	
+
 		
 --[[ 		if myHero.pos:DistanceTo(target.pos) > 600 and myHero.pos:DistanceTo(target.pos) < 835 and Ready(_Q) and Ready(_E) then
 			local QDmg = HeroQdmg(target) + CalcExtraDmg(target)
@@ -1170,7 +1185,9 @@ function Irelia:Tick()
 				end	
 			end
 		end ]]
-		self:Gapclose(target)
+		if self.Menu.ComboSet.Burst.Gap:Value() then
+			self:Gapclose(target)
+		end	
 		if myHero:GetSpellData(_E).name == "IreliaE2" then return end
 		if self.Menu.ComboSet.Combo.Stack:Value() then
 			self:StackPassive(target)
@@ -1211,19 +1228,22 @@ end
 
 
 local function GetKillableMinion()	
+	
 	local Minions = GetMinions(600, 1)
 	local qmindmg = MinionQdmg()
 	local closesttarget=nil
 	local closesdist=600	
 	if #Minions>0 then
-		local QDmg = qmindmg + CalcExtraDmg(Minions[1], 1)
 		for i = 1, #Minions do
-			local minion = Minions[i]			
+			local minion = Minions[i]	
+			local QDmg = qmindmg*(100/(101+minion.armor))+CalcExtraDmg2()+ CalcExtraDmg3(minion)
 			if (minion.team == TEAM_ENEMY) and GetDistance(minion.pos, mousePos) < closesdist  and QDmg > minion.health and IsValid(minion) then
 				closesttarget=minion
 				closesdist=GetDistance(minion.pos, mousePos)
 			elseif (minion.team == TEAM_JUNGLE) and IsValid(minion) and GetDistance(minion.pos, mousePos) < closesdist then
+				print(minion.charName)
 				local QDmg2 = HeroQdmg(minion) + CalcExtraDmg2()+ CalcExtraDmg3(minion)
+				print(QDmg2)
 				if QDmg2 > minion.health then
 					closesttarget=minion
 					closesdist=GetDistance(minion.pos, mousePos)
@@ -1282,26 +1302,26 @@ local function DrawKillableMinion()
 
 		local Minions = GetMinions(800, 1)
 		if Minions == nil then return end
-        local qbasedmg=MinionQdmg()+CalcExtraDmg2()
+        local qbasedmg=MinionQdmg()
+		local qextra=CalcExtraDmg2()
+		qminions={}
 		for i = 1, #Minions do
 			local minion = Minions[i]
 		
-			if not locate(qminions,minion.name)then
-			local QDmg = qbasedmg + CalcExtraDmg3(minion)
-			if  IsValid(minion) and minion.team == TEAM_ENEMY and QDmg > minion.health then
-				if KillMinion == nil then
+			--if not locate(qminions,minion.name)then
+				local QDmg = qbasedmg*(100/(100+minion.armor))+ qextra+ CalcExtraDmg3(minion)
+				if  IsValid(minion) and QDmg > minion.health  then
 					if GetDistance(minion.pos, mousePos) < (230) then
 						KillMinion=minion
 					end
+					table.insert(qminions, minion.name)
+				elseif (minion.team == TEAM_JUNGLE) then
+					local QDmg2 = HeroQdmg(minion) + CalcExtraDmg2()+ CalcExtraDmg3(minion)
+					if QDmg2 > minion.health and IsValid(minion)  then
+					table.insert(qminions, minion.name)
+					end
 				end
-				table.insert(qminions, minion.name)
-			elseif (minion.team == TEAM_JUNGLE) then
-				local QDmg2 = HeroQdmg(minion) + CalcExtraDmg2()+ CalcExtraDmg3(minion)
-				if QDmg2 > minion.health and IsValid(minion)  then
-				table.insert(qminions, minion.name)
-				end
-			end
-			end
+		--	end
 		end	
 		lastcheck=Game.Timer()
 		
@@ -1389,16 +1409,17 @@ function Irelia:Flee()
 end
 
 function Irelia:Ninja()
-local target1 = GetTarget(1000)	
+	local target1 = GetTarget(1000)	
 	local nearbyenmies={}
 	for i, target2 in ipairs(GetEnemyHeroes()) do
 		
-		if Ready(_Q) and GetEnemyCount(1100, myHero) >= 2 then 
+		if Ready(_Q) and GetEnemyCount(1100, myHero) >= 2 and myHero then 
 			if target2 and target1 and target2 ~= target1 then
 				if HasBuff(target2, "ireliamark") and myHero.pos:DistanceTo(target2.pos) <= 600 and IsValid(target2) then		
 					local time2 = myHero.pos:DistanceTo(target2.pos) / (1400+myHero.ms)
 					local MarkBuff2 = GetBuffData(target2, "ireliamark")
-					if MarkBuff2.duration > time2 and not cantkill(target2,false,true,true) and (_G.SDK.TargetSelector.Selected==nil or (HasBuff(target1, "ireliamark") and target1.pos:DistanceTo(target2.pos)<math.max(450,myHero.pos:DistanceTo(target1.pos))) or target1.pos:DistanceTo(target2.pos)<math.max(325,myHero.pos:DistanceTo(target1.pos))) then
+					print(myHero.pos:DistanceTo(target1.pos)>myHero.range+myHero.boundingRadius or myHero.attackData.state==STATE_WINDDOWN)
+					if MarkBuff2.duration > time2 and not cantkill(target2,false,true,true) and (myHero.pos:DistanceTo(target1.pos)>myHero.range+myHero.boundingRadius or myHero.attackData.state==STATE_WINDDOWN)and (_G.SDK.TargetSelector.Selected==nil or (target1.pos:DistanceTo(target2.pos)<math.max(450,myHero.pos:DistanceTo(target1.pos)) and (HeroQdmg(target1) + CalcExtraDmg(target1))*2.5<target1.health)  or target1.pos:DistanceTo(target2.pos)<math.max(325,myHero.pos:DistanceTo(target1.pos))) then
 						table.insert(nearbyenmies, target2)
 					end
 				end
@@ -1412,38 +1433,33 @@ local target1 = GetTarget(1000)
 			Control.CastSpell(HK_Q, target2)
  			if Ready(_E) and #nearbyenmies==1 and myHero:GetSpellData(_E).name ~= "IreliaE2" then	
 				_G.SDK.Cursor.Step=0
-				Control.CastSpell(HK_E, target2.pos)
+				Control.CastSpell(HK_E, target2.pos)		
 			end 
+			print("test2")
+			return true
 		end
 	end
+	return false
 end
 
 function Irelia:Combo()
-	if _G.SDK.Menu.Orbwalker.Keys.Combo:Value() then
-		self:Flee()
-	end
 local target = GetTarget(1000)     	
 if target == {} then end
 	if IsValid(target) then
-
 		if Ready(_R) and myHero.pos:DistanceTo(target.pos) <= self.Menu.MiscSet.Rrange.R:Value() and self.Menu.ComboSet.Combo.UseRCount:Value() and not HasBuff(target, "ireliamark")   then
 			local count = GetEnemyCount(400, target)
 			if count >= self.Menu.ComboSet.Combo.RCount:Value() then					
 				self:CastR(target,true,self.Menu.ComboSet.Combo.RCount:Value())
 			end
-		end			
-		
+		end					
 		if self.Menu.ComboSet.Combo.UseE:Value() and Ready(_E) then
 			local target3 = GetTarget(835)  
 			if target3 then					
 				self:CastE(target3)
 			end
 		end	
+
 		local target3 = GetTarget(600)  	
-		if target3 and myHero.pos:DistanceTo(target3.pos) <= 600 and Ready(_Q) and HasBuff(target3, "ireliamark") and not cantkill(target3,false,true,true) then
-			Control.CastSpell(HK_Q, target3)			
-		end
-		
 --		if self.Menu.ComboSet.Combo.UseW:Value() and Ready(_W) and not Ready(_E) then
 --			if myHero.pos:DistanceTo(target.pos) <= 835 then
 --				Control.CastSpell(HK_W, target)
@@ -1460,26 +1476,34 @@ if target == {} then end
 		if self.Menu.ComboSet.Combo.LogicQ:Value() and target3 then 				 
 			if myHero.pos:DistanceTo(target3.pos) <= 600 and Ready(_Q) then
 				local QDmg = HeroQdmg(target3) + CalcExtraDmg(target3)
-				if (QDmg >= target3.health) and IsValid(target3) and not cantkill(target3,true,true,true) then --and CheckHPPred(target) >= 1)
+				if (QDmg >= target3.health+target3.shieldAD) and IsValid(target3) and not cantkill(target3,true,true,true) then --and CheckHPPred(target) >= 1)
 					Control.CastSpell(HK_Q, target3)		
 				end
 			end			
 			
 			if myHero.pos:DistanceTo(target3.pos) >= 300 and myHero.pos:DistanceTo(target3.pos) <= 600 and Ready(_Q) and not cantkill(target3,true,true,true) then
 				local QDmg = HeroQdmg(target3) + CalcExtraDmg(target3)
-				if (QDmg*1.75) >= target3.health then
+				if (QDmg*1.75) >= target3.health+target3.shieldAD then
 					Control.CastSpell(HK_Q, target3)	
 				end	
 			end		
 		
-		elseif target3 then
-				
+		elseif target3 then				
 			if myHero.pos:DistanceTo(target3.pos) <= 600 and Ready(_Q) then
 				local QDmg = HeroQdmg(target3) + CalcExtraDmg(target3)
-				if (QDmg >= target3.health) and IsValid(target3) and not cantkill(target3,true,true,true) then --and CheckHPPred(target) >= 1)
+				if (QDmg >= target3.health+target3.shieldAD) and IsValid(target3) and not cantkill(target3,true,true,true) then --and CheckHPPred(target) >= 1)
 					Control.CastSpell(HK_Q, target3)		
 				end
 			end
+		end
+
+		ninjatarget=false
+		if self.Menu.ComboSet.Ninja.UseQ:Value() and Ready(_Q) then
+			ninjatarget= self:Ninja()
+		end	
+	
+		if target3 and myHero.pos:DistanceTo(target3.pos) <= 600 and Ready(_Q) and (myHero.pos:DistanceTo(target3.pos) >= myHero.range + myHero.boundingRadius or myHero.attackData.state==STATE_WINDDOWN) and (Ready(_E)or Ready(_R) or myHero.pos:DistanceTo(target3.pos) >= myHero.range+100) and HasBuff(target3, "ireliamark") and not cantkill(target3,false,true,true) then
+			Control.CastSpell(HK_Q, target3)	
 		end
 		
 		if self.Menu.ComboSet.Combo.Gap:Value() then
@@ -1522,14 +1546,16 @@ end
 
 
 function Irelia:StackPassive(target)
-if myHero.hudAmmo==4 then return end	
-	for i = 1, GameMinionCount() do
-    local minion = GameMinion(i)
-
-		if minion.team == TEAM_ENEMY then
-
-			if target.pos:DistanceTo(minion.pos) <= 400 and myHero.pos:DistanceTo(minion.pos) <= 600 and  Ready(_Q) and not HasBuff(target, "ireliamark") then
-			local QDmg = MinionQdmg() + CalcExtraDmg(minion)
+	if myHero.hudAmmo==4 then return end
+	local mindmg= MinionQdmg()
+	local Minions = GetMinions(600, 1)
+	local closesttarget=nil
+	local closesdist=600	
+	if #Minions>0 then
+		for i = 1, #Minions do
+			local minion = Minions[i]
+			if  target.pos:DistanceTo(minion.pos) <= 350 and  Ready(_Q) and not HasBuff(target, "ireliamark") then
+				local QDmg = mindmg*(100/(100+minion.armor)) CalcExtraDmg(minion)
 				if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValid(minion) then
 					Control.CastSpell(HK_Q, minion)
 				end	
@@ -1538,32 +1564,18 @@ if myHero.hudAmmo==4 then return end
 	end
 end	
 
-
-function Irelia:CastQMinion(target)
-	for i = 1, GameMinionCount() do
-    local minion = GameMinion(i)
-
-		if minion.team == TEAM_ENEMY and IsValid(minion) then
-			local Dmg = HeroQdmg(target)
-			if IsValid(target) and myHero.pos:DistanceTo(minion.pos) <= 600 and target.pos:DistanceTo(myHero.pos) < minion.pos:DistanceTo(target.pos) and not IsUnderTurret(minion) and target.health > Dmg then
-			local QDmg = MinionQdmg() + CalcExtraDmg(minion)
-				if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and IsValidCrap(minion) and not HasBuff(target, "ireliamark") then
-					Control.CastSpell(HK_Q, minion)
-				end					
-			end
-		end
-	end
-end	
-
 function Irelia:Gapclose(target)
-	for i = 1, GameMinionCount() do
-    local minion = GameMinion(i)
-	
-		if Ready(_Q) and myHero.pos:DistanceTo(minion.pos) <= 600 and minion.team == TEAM_ENEMY and IsValid(minion) then
-			local QDmg = MinionQdmg() + CalcExtraDmg(minion)
-			if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and myHero.pos:DistanceTo(target.pos) > target.pos:DistanceTo(minion.pos) then
-				Control.CastSpell(HK_Q, minion)				
-			end	
+	local mindmg= MinionQdmg()
+	local Minions = GetMinions(600, 1)
+	if #Minions>0 then
+		for i = 1, #Minions do
+			local minion = Minions[i]
+			if Ready(_Q) and myHero.pos:DistanceTo(minion.pos) <= 600 and minion.team == TEAM_ENEMY and IsValid(minion) then
+				local QDmg = mindmg*(100/(100+minion.armor)) + CalcExtraDmg(minion)
+				if (QDmg >= minion.health and CheckHPPred(minion) >= 1) and myHero.pos:DistanceTo(target.pos) > target.pos:DistanceTo(minion.pos) then
+					Control.CastSpell(HK_Q, minion)				
+				end	
+			end
 		end
 	end	
 end	
@@ -1825,7 +1837,7 @@ function Irelia:Draw()
     DrawCircle(myHero, 825, 1, DrawColor(225, 225, 125, 10))
 	end
 	if self.Menu.MiscSet.Drawing.DrawKM:Value() and Ready(_Q) then
-		if (lastdkm+.3)<Game.Timer() then
+		if (lastdkm+.4)<Game.Timer() then
 		DrawKillableMinion()
 		end	
 		if (lastkdelete+2)<Game.Timer() then

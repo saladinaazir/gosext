@@ -918,7 +918,8 @@ function Irelia:LoadMenu()
 	self.Menu.ComboSet.Combo:MenuElement({id = "UseRCount", name = "Auto[R] Multiple Enemys", value = true})	
 	self.Menu.ComboSet.Combo:MenuElement({id = "RCount", name = "Multiple Enemys", value = 2, min = 2, max = 5, step = 1})
 	self.Menu.ComboSet.Combo:MenuElement({id = "Gap", name = "Gapclose [Q] (recommend using flee key instead) ", value = false})
-	self.Menu.ComboSet.Combo:MenuElement({id = "Stack", name = "Stack Passive near Target/Minion", value = true})		
+	self.Menu.ComboSet.Combo:MenuElement({id = "Stack", name = "Stack Passive near Target/Minion", value = true})	
+	self.Menu.ComboSet.Combo:MenuElement({id = "Wait", name = "don't Q marked target if E+R down and target is in AA range", value = false})		
 	
 	--BurstModeMenu
 	self.Menu.ComboSet:MenuElement({type = MENU, id = "Burst", name = "Burst Mode"})	
@@ -1133,7 +1134,7 @@ function Irelia:Tick()
 		if self.Menu.ComboSet.Ninja.UseQ:Value() and Ready(_Q) then
 			ninjatarget= self:Ninja()
 		end	
-		if myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) and (myHero.pos:DistanceTo(target.pos) >= myHero.range + 100 or myHero.attackData.state==STATE_WINDDOWN)  and HasBuff(target, "ireliamark") and not cantkill(target,false,true,true) then
+		if myHero.pos:DistanceTo(target.pos) <= 600 and Ready(_Q) and (myHero.pos:DistanceTo(target.pos) >= myHero.range + 100 or self.Menu.ComboSet.Combo.Wait:Value()==false or myHero.attackData.state==STATE_WINDDOWN)  and HasBuff(target, "ireliamark") and not cantkill(target,false,true,true) then
 			if CheckHPPred(target) >= 1 and IsValid(target) then
 				Control.CastSpell(HK_Q, target)	
 			end	
@@ -1502,7 +1503,7 @@ if target == {} then end
 			ninjatarget= self:Ninja()
 		end	
 	
-		if target3 and myHero.pos:DistanceTo(target3.pos) <= 600 and Ready(_Q) and (myHero.pos:DistanceTo(target3.pos) >= myHero.range + myHero.boundingRadius or myHero.attackData.state==STATE_WINDDOWN) and (Ready(_E)or Ready(_R) or myHero.pos:DistanceTo(target3.pos) >= myHero.range+100) and HasBuff(target3, "ireliamark") and not cantkill(target3,false,true,true) then
+		if target3 and myHero.pos:DistanceTo(target3.pos) <= 600 and Ready(_Q) and (myHero.pos:DistanceTo(target3.pos) >= myHero.range + myHero.boundingRadius or  self.Menu.ComboSet.Combo.Wait:Value()==false or myHero.attackData.state==STATE_WINDDOWN) and (Ready(_E)or Ready(_R) or myHero.pos:DistanceTo(target3.pos) >= myHero.range+100) and HasBuff(target3, "ireliamark") and not cantkill(target3,false,true,true) then
 			Control.CastSpell(HK_Q, target3)	
 		end
 		
